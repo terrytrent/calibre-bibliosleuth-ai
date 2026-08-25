@@ -1,0 +1,13 @@
+BiblioSleuth AI
+
+AI-powered exact-edition EPUB metadata research for Calibre.
+
+Author: Terry Trent
+Bundled dependency: defusedxml 0.7.1 (Python Software Foundation License)
+Version: 1.0.0
+License: MIT
+Minimum Calibre version: 7.0.0
+Platforms: Windows, macOS, and Linux
+
+BiblioSleuth AI is an independent community plugin. It is not affiliated with or
+endorsed by Calibre or OpenAI. OpenAI API usage may incur charges.

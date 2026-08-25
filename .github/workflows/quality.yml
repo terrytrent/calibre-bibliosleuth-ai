@@ -1,0 +1,56 @@
+name: Code Quality
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+  workflow_dispatch:
+
+concurrency:
+  group: quality-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  qlty:
+    name: Qlty code-quality pass
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-python@v7
+        with:
+          python-version: "3.13"
+      - name: Install pinned correctness linter
+        run: python -m pip install --disable-pip-version-check ruff==0.12.12
+      - name: Enforce correctness-oriented Ruff checks
+        run: ruff check src tests scripts
+      - name: Install Qlty CLI
+        uses: qltysh/qlty-action/install@08a0a862c159eae9b9003081da6663d96efef637 # v2.3.0
+      - name: Run configured linters and security analyzers
+        shell: bash
+        run: |
+          set -o pipefail
+          qlty check --all --no-progress --no-fix --no-fail | tee qlty-check.txt
+      - name: Collect maintainability metrics
+        if: always()
+        shell: bash
+        run: |
+          qlty smells --all | tee qlty-smells.txt || true
+          qlty metrics --all --max-depth=2 --sort complexity --limit 50 | tee qlty-metrics.txt || true
+      - name: Upload Qlty reports
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: qlty-reports
+          path: |
+            qlty-check.txt
+            qlty-smells.txt
+            qlty-metrics.txt
+          if-no-files-found: warn
+          retention-days: 30

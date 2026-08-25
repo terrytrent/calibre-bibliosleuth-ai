@@ -1,0 +1,110 @@
+<!doctype html>
+<html><head><meta charset="utf-8"><style>
+html, body { background-color: {{BASE_COLOR}}; color: {{TEXT_COLOR}}; }
+body { font-family: sans-serif; line-height: 1.45; margin: 24px; overflow-wrap: anywhere; }
+h1, h2 { color: {{LINK_COLOR}}; } a { color: {{LINK_COLOR}}; }
+code { background-color: {{ALT_BASE_COLOR}}; color: {{TEXT_COLOR}}; border: 1px solid {{BORDER_COLOR}}; padding: 2px 4px; }
+table { border-collapse: collapse; width: 100%; table-layout: fixed; }
+th, td { border: 1px solid {{BORDER_COLOR}}; padding: 7px; text-align: left; vertical-align: top; overflow-wrap: anywhere; word-break: break-word; }
+.note { color: {{TEXT_COLOR}}; border: 1px solid {{BORDER_COLOR}}; border-left: 4px solid {{LINK_COLOR}}; padding: 8px 12px; background-color: {{ALT_BASE_COLOR}}; }
+</style></head><body>
+<h1>BiblioSleuth AI</h1>
+<p>BiblioSleuth AI is a Calibre plugin that examines selected EPUB package metadata and bounded text from confidently identified title and copyright pages, searches the web with OpenAI, and proposes metadata for the exact edition. Unidentified pages and chapters are excluded. Nothing is written until you explicitly confirm field-level review or the separately warned bulk-accept workflow.</p>
+<p><b>Author:</b> Terry Trent · <b>Version:</b> 1.0.0 · <b>License:</b> MIT · <b>Minimum Calibre:</b> 7.0.0</p>
+<p>BiblioSleuth AI is an independent community plugin and is not affiliated with or endorsed by Calibre or OpenAI.</p>
+
+<h2>What it can update</h2>
+<p>Title, authors, series and series index, tags, identifiers (including ISBN and ASIN), publication date, publisher, and comments/description. It does not download books or covers and does not rewrite the EPUB file itself.</p>
+<p>Descriptions focus on the book's content and intended audience. ISBNs, local EPUB evidence provenance, publisher/date/format audit notes, and explanations of how an edition was identified are kept in their dedicated metadata fields or the match rationale rather than appended to Calibre comments.</p>
+
+<h2>Requirements</h2>
+<ul><li>A supported desktop Calibre installation.</li><li>At least one selected book with an EPUB format.</li><li>An OpenAI Platform account with API billing/credits and an API key.</li><li>Internet access for the Responses API and web search.</li></ul>
+
+<h2>First-run setup</h2>
+<p>The first toolbar click opens a setup wizard covering workflow, API-key storage, presets, privacy, and toolbar placement. Reopen it with <b>Run Setup Wizard</b>. Settings are organized into General, Optimization, System Prompt, Privacy &amp; Security, and Help tabs.</p>
+<p>Long status and preset text wraps inside the settings window, avoiding horizontal scrolling. On the System Prompt tab, <b>View Default Prompt</b> always shows the bundled prompt, while <b>Preview Effective Prompt</b> shows the prompt that research will actually use.</p>
+
+<h2>Creating and configuring an API key</h2>
+<ol>
+<li>Open <a href="https://platform.openai.com/api-keys">OpenAI API keys</a> and create a project key.</li>
+<li>In Calibre, open Preferences → Plugins → BiblioSleuth AI → Customize plugin.</li>
+<li>Paste the key into <b>API key</b>. Leave <b>Remember securely</b> enabled to use the operating system credential vault, then use <b>Test Connection</b>.</li>
+<li>Save the settings.</li>
+</ol>
+<p>You may instead launch Calibre with <code>OPENAI_API_KEY</code> set. The environment variable takes precedence. BiblioSleuth AI never stores the key in Calibre’s JSON preferences: it uses macOS Keychain, Windows Credential Manager, or Linux Secret Service when available. When a key exists, settings prominently displays <b>✓ API key is stored securely and active</b>, but never reveals its value. The entry field is labeled <b>Replace API key</b>: leave it blank to keep the active key, type a new value to replace it, or select <b>Delete Stored API Key</b> to remove session and vault copies. If secure storage is disabled or unavailable, the key remains in memory only and must be entered after Calibre restarts. API keys are secrets: do not share them or commit them to source control. See the <a href="https://developers.openai.com/api/docs/quickstart">OpenAI API quickstart</a>.</p>
+<p>macOS Keychain integration is tested on macOS. The Windows Credential Manager and Linux Secret Service adapters have automated mock coverage but require field testing on those platforms.</p>
+<p><b>Model choices:</b> the non-editable model dropdown contains bundled defaults plus relevant models visible to the configured account. A successful account model list is cached for seven days and refreshed when stale; use <b>Refresh Model Choices</b> for an immediate refresh. Listing models does not generate text or invoke web search. The Models API does not report every required capability, so use the separately confirmed, billable <b>Test Model Capabilities…</b> action before selecting an unfamiliar model.</p>
+
+<h2>Basic workflow</h2>
+<ol><li>Select one or several books and click the main <b>BiblioSleuth AI</b> icon.</li><li>For batches, review eligible EPUBs, skipped books, cache behavior, preset, and rough estimate in preflight. The prompt does not read or hash complete EPUB files, so it remains responsive for large selections.</li><li>Monitor fingerprinting, exact cache detection, EPUB reading, research, and completion stages in <b>Jobs</b>.</li><li>When research completes, a persistent non-modal notice offers <b>Review books</b>, <b>Accept all…</b>, <b>Hide notification</b>, or <b>Abort</b>. It never opens review automatically or blocks other Calibre work.</li><li>Hiding keeps results available; click the numbered BiblioSleuth AI toolbar icon later. Abort discards all waiting results without changing metadata.</li><li>Review changed/unchanged typography, confidence badges, inference labels, usage, and categorized evidence sources. The table follows Calibre’s palette for readable light and dark themes.</li><li>Use <b>Select recommended</b>, <b>Select none</b>, <b>Restore AI proposal</b>, or <b>View all details…</b>. Correct any field before applying it.</li><li>Descriptions offer rendered and HTML-source views with counts; tags use an add/remove editor.</li><li>Navigate with <b>Review previous book</b>, <b>Skip this book and review next</b>, and <b>Approve selected fields and review next</b> (or the corresponding “finish” label on the last book). Nothing is written until final confirmation.</li></ol>
+<p><b>Research only selected fields:</b> open the arrow beside the BiblioSleuth AI icon and choose <b>Research Specific Fields…</b>. Select Title, Authors, Series, Tags, Identifiers, Published Date, Publisher, and/or Description. Only checked fields are sent as the requested output contract and only those fields appear in review. Series and series index are one choice, so requesting Series always researches the book number too. The main icon continues to research every supported field.</p>
+<p><b>Blind accept:</b> choose <b>Accept all…</b> in the notice or <b>Accept All Pending Results…</b> in the toolbar menu to skip every review screen. The confirmation reports book, inferred-field, and low-confidence-field counts. Confirming applies every non-null proposal, verifies that records and EPUBs have not changed, and creates one undo checkpoint. AI output can be wrong; this deliberately bypasses field-level review and should be used only when that risk is acceptable.</p>
+<p>Once review has started, <b>Accept all remaining books…</b> performs the same confirmed operation for the current book and every later book, preserving proposal edits already made. Navigation labels state the result explicitly: <b>Review previous book</b>, <b>Skip this book and review next</b>, and <b>Approve selected fields and review next</b>; the final book uses “finish” instead. These controls share one aligned horizontal row.</p>
+<p>Review shortcuts: <code>Space</code> toggles a field, <code>Enter</code> edits it, <code>Ctrl+Shift+A</code> selects recommended values, and <code>Ctrl+Return</code> applies and advances. <b>Undo Last BiblioSleuth AI Changes</b> restores the last batch during the same session; keep normal Calibre backups.</p>
+<p>After applying changes, the complete update count and OpenAI usage/cost estimate appear in a resizable, scrollable completion window. Select the text directly or use <b>Copy summary</b>.</p>
+
+<h2>Performance statistics</h2>
+<p>Choose <b>Statistics…</b> from the toolbar arrow or the Statistics configuration tab. The Overview reports researched, successful, failed, cancelled, applied, skipped, and discarded counts; live/cache counts; total retrieval time; average, median, fastest, slowest, P90, P95, and books per minute.</p>
+<p>The timing breakdown reports average queue wait, fingerprinting, cache lookup, EPUB extraction, OpenAI request, response validation, review wait, and metadata normalization/application. OpenAI exposes only complete request duration, so web search, reasoning, and generation remain combined. The completion summary also reports total background retrieval time for the latest job.</p>
+<p>Usage reports input/cached/output/reasoning/total tokens, searches, total and average estimated cost, tokens and cost per successful record, and estimated avoided cost when a session-cache result retains its original lookup cost. Costs are planning estimates, not invoices.</p>
+<p>The Comparisons tab groups by optimization preset, model, live/cache source, outcome, date, or single-book/batch operation. Filters cover Session, 7, 30, 90 days, or All plus model, preset, source, and outcome. Filtered data can be exported as anonymized CSV; all history can be cleared.</p>
+<p>Collection is enabled by default and retains no more than 1,000 records or 90 days, whichever limit is reached first. The Statistics settings tab can disable new collection or change both limits. Disabling collection preserves existing history until it is cleared.</p>
+<p>Each record contains only timestamps, a salted truncated EPUB fingerprint, model/preset/research limits, timings, cache state, token/search usage, estimated cost, outcome category, and batch size. It never contains titles, authors, library IDs, paths, EPUB content, prompts, responses, evidence URLs, API keys, or exact errors.</p>
+<p>Cancel a running research job from Calibre’s Jobs panel. Cancellation takes effect after the current network request returns; any books already researched are still offered for review.</p>
+<p>The progress bar advances as each EPUB is read and each book’s research finishes. While OpenAI is searching and generating a response, the percentage may remain unchanged because the API does not expose progress within an individual request.</p>
+<p>Successful results are cached in memory for the current Calibre session using the EPUB fingerprint, model, effective prompt, requested-field set, and research settings. An identical repeat avoids a new billable request but still opens review. Full and field-specific lookups never share a cache entry unless their requested fields are identical. Cached reviews show research time and model. Use <b>Research fresh…</b> in review or <b>Research Fresh (Ignore Cache)</b> in the toolbar menu to replace it, or <b>Clear Session Lookup Cache</b> to remove all cached lookups. The cache disappears when Calibre exits.</p>
+<p>Requesting fewer fields can reduce structured-output tokens, particularly when Description or Tags is omitted. Exact-edition identification and web research remain active, so search calls, input tokens, time, and cost may not decrease proportionally.</p>
+
+<h2>Expected token and search usage</h2>
+<p class="note"><b>These are planning estimates, not a quota or price guarantee.</b> Actual usage depends on available title/copyright-page evidence, the selected model, search context, source pages, and model behavior.</p>
+<table><tr><th>Operation</th><th>Typical calls</th><th>Planning estimate</th></tr>
+<tr><td>Research one book</td><td>One Responses API request plus one or more web searches</td><td>About 4,000–20,000 input tokens and 500–2,000 output tokens</td></tr>
+<tr><td>Validate an already-correct custom prompt</td><td>Review + synthetic test</td><td>Two model requests</td></tr>
+<tr><td>Repair an invalid custom prompt</td><td>Review/repair + synthetic test</td><td>Usually two requests; a failed synthetic test can require a third</td></tr></table>
+<p>Web search is billed separately from text tokens. Model and tool prices can change; consult <a href="https://developers.openai.com/api/docs/models">OpenAI model documentation</a> and the linked pricing information before large batches. The Responses API reports input/output token usage, while web-search usage can also be tracked separately in the OpenAI Platform.</p>
+
+<h2>Configuration reference</h2>
+<ul>
+<li><b>Model:</b> defaults to <code>gpt-5.6-luna</code>, OpenAI’s current cost-sensitive, high-volume GPT-5.6 model. It supports the Responses API, structured output, web search, and configurable reasoning. Any other selected model must support the same capabilities.</li>
+<li><b>Test Model Capabilities:</b> makes a clearly disclosed billable structured-output request with web search and checks the required features.</li>
+<li><b>Timeout:</b> maximum wait for an API request.</li>
+<li><b>Optimization preset:</b> Balanced is the default. Economy allows 4,000 title/copyright-page evidence characters, low search context, no reasoning, a 1,600-token output cap, and up to 2 evidence URLs per field. Balanced allows 6,000 characters, low search context, low reasoning, a 2,000-token cap, and up to 3 URLs. Thorough allows 12,000 characters, medium search context, medium reasoning, a 3,000-token cap, and up to 4 URLs. Custom unlocks all five controls.</li>
+<li><b>Web search context:</b> low reduces search context/cost; high may improve difficult edition matching.</li>
+<li><b>Title/copyright evidence characters:</b> maximum combined text disclosed from confidently identified title and copyright pages.</li>
+<li><b>Reasoning effort:</b> controls model reasoning tokens; supported values depend on the configured model.</li>
+<li><b>Maximum output tokens:</b> caps reasoning plus generated output. A cap that is too low can prevent a complete schema response.</li>
+<li><b>Maximum evidence URLs per field:</b> controls how many of the strongest direct sources each proposed field may return.</li>
+<li><b>Maximum tags/description:</b> limits values written to Calibre.</li>
+<li><b>System prompt override:</b> changes research guidance. Custom prompts must pass AI review and a synthetic schema test before saving.</li>
+<li><b>Statistics:</b> enables anonymized performance collection and configures retention days and maximum records.</li>
+</ul>
+<p>BiblioSleuth AI identifies title and copyright pages using EPUB guide and structural semantics, filenames, spine position, and conservative bibliographic markers. It sends at most one page for each purpose. If a page cannot be identified confidently, it is omitted instead of substituting other early pages. It uses a stable prompt-cache key and reports input, cached-input, output, reasoning, total-token, and web-search usage after each job. The selected evidence-URL limit is enforced in the response schema and again during local validation.</p>
+<p>Each book’s review window and full-details view show that lookup’s token usage, web-search count, and estimated USD cost. The final message and job log show totals for the batch. Cost is estimated from reported tokens, cached tokens, output tokens, and web-search calls using a bundled standard-pricing table dated in the display. It is not an invoice and may exclude account-specific discounts, taxes, regional processing, service-tier adjustments, or later price changes. When the selected model is absent from the bundled pricing table, BiblioSleuth AI reports tokens but does not guess a cost.</p>
+
+<h2>Privacy and data handling</h2>
+<p>BiblioSleuth AI sends selected OPF metadata and only the configured amount of text from confidently identified title and copyright pages. It never sends unidentified pages, contents, prefaces, introductions, dedications, or body chapters, and it never uploads the complete book. When neither page can be identified confidently, only the selected OPF fields are sent. Requests set <code>store=false</code>. Web pages and EPUB text are treated as untrusted evidence. OpenAI states that API data is not used to train models unless the account explicitly opts in, but abuse-monitoring retention may still apply; review the current <a href="https://developers.openai.com/api/docs/guides/your-data">OpenAI data controls documentation</a>.</p>
+<p>EPUB archive members are read through strict decompression and size limits. A simple legacy external <code>DOCTYPE</code> in package XML is stripped without being resolved; bundled <code>defusedxml</code> independently rejects DTDs, entity declarations, and external references. Instruction-like text in included evidence triggers a warning and prevents fields from being preselected. Model-provided evidence links require confirmation before opening. Generated comments are reduced to a small formatting allowlist; links, images, scripts, styles, forms, SVG, embedded media, and attributes are removed.</p>
+<p>BiblioSleuth AI refuses redirects from its fixed OpenAI API endpoint so an authorization header cannot be forwarded elsewhere. Hosted web search happens inside OpenAI and is unaffected: a refused API redirect does not consume one of the configured evidence-URL slots or count as a completed source lookup.</p>
+
+<h2>Confidence, evidence, and editions</h2>
+<p>BiblioSleuth AI prioritizes exact identifiers, then publisher/edition/date agreement, then title and authors. Evidence links show why a value was proposed. “Inferred” means the value was synthesized rather than directly stated. AI and web sources can be wrong; review identifiers, series order, dates, and publisher especially carefully.</p>
+
+<h2>Failures and troubleshooting</h2>
+<ul><li><b>API key required:</b> configure a key or set <code>OPENAI_API_KEY</code>.</li><li><b>401/403:</b> check the key, project permissions, and billing.</li><li><b>429:</b> a rate or spending limit was reached; wait or inspect the OpenAI project limits.</li><li><b>Model unavailable:</b> choose a model available to the project that supports web search and structured output.</li><li><b>No EPUB:</b> add an EPUB format to the selected Calibre record.</li><li><b>Incorrect match:</b> inspect evidence, edit proposed values, or skip the record.</li><li><b>Toolbar icon/action missing:</b> restart Calibre, then add BiblioSleuth AI under Preferences → Toolbars &amp; menus.</li></ul>
+<p>Failure results provide direct <b>Configure</b>, <b>Retry failed fresh</b>, and <b>Troubleshooting</b> actions. Job logs stay generic while the completion dialog provides useful guidance.</p>
+
+<h2>Diagnostics and support privacy</h2>
+<p><b>Copy Redacted Diagnostics</b> is available in the toolbar menu and Help settings tab. It includes versions, platform, preset, model name, non-secret limits, prompt version/hash and validation state, credential source, and cache size. It excludes API keys, headers, EPUB text, library metadata, full custom prompts, responses, and evidence URLs. Review clipboard contents before sharing.</p>
+<p>Failure dialogs also provide <b>Collect diagnostic logs…</b>; after closing one, use <b>Collect Recent Diagnostic Logs…</b> from the toolbar arrow. A bounded local journal retains at most 20 job summaries for seven days. Successful jobs keep minimal stage/timing/usage counts. Failures additionally retain sanitized category/stage, optional sanitized message and stack, salted anonymous book identity, and content-free EPUB structure such as member/byte/encryption counts and container declaration flags.</p>
+<p>A preview explains the four ZIP files before saving: README, manifest, redacted environment/configuration with aggregate statistics, and recent journal. Choose whether to include detailed sanitized errors/stacks and where to save, or clear retained diagnostic history. Nothing is uploaded automatically.</p>
+<p>Diagnostic history and bundles never contain API keys or authorization headers, titles, authors, library IDs or paths, EPUB text or metadata values, full prompts, model responses, evidence URLs, credential-vault data, or unredacted URLs. Review the resulting ZIP before sharing it.</p>
+
+<h2>Safety and limitations</h2>
+<p>Changes affect Calibre’s library metadata, not embedded EPUB metadata. Identifiers are merged by type rather than replacing the entire identifier set. Small batches are supported, but unattended bulk processing is not. Search availability, sites, model output, pricing, and rate limits are outside the plugin’s control. Keep library backups and review every proposed change.</p>
+
+<h2>Updating and uninstalling</h2>
+<p>Restart Calibre after installing or updating BiblioSleuth AI. To uninstall, open Preferences → Plugins, select BiblioSleuth AI under User interface action plugins, and choose <b>Remove plugin</b>. Uninstalling does not reverse metadata already applied and does not modify EPUB files. Select <b>Delete Stored API Key</b> before uninstalling if you also want to remove the operating-system credential-vault entry, and <b>Clear Statistics…</b> if you want to delete retained performance history.</p>
+
+<h2>Getting support</h2>
+<p>When reporting a problem, provide the BiblioSleuth AI version, Calibre version, operating system, optimization preset, and a redacted error from the Jobs panel. Never post an API key, complete custom prompt, copyrighted EPUB passage, or private library export. The source distribution includes a security policy and version history.</p>
+</body></html>
