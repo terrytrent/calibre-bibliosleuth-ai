@@ -398,3 +398,12 @@ covers or rewrite embedded metadata.
 When reporting a problem, include the BiblioSleuth AI and Calibre versions, operating
 system, optimization preset, and a redacted job error. Never include an API key,
 complete custom prompt, copyrighted EPUB passage, or private library export.
+
+## Support BiblioSleuth AI
+
+If BiblioSleuth AI saves you time organizing your library, you can support its
+continued development, testing, documentation, and maintenance:
+
+<p align="center">
+  <a href="https://www.buymeacoffee.com/terry.trent" target="_blank"><img src="assets/buy_me_a_book.png" alt="Buy me a book!" height="60" width="217"></a>
+</p>
