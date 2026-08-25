@@ -29,9 +29,7 @@ def test_documented_versions_match_plugin():
     assert "**Version:** " + version in (ROOT / "README.md").read_text(encoding="utf-8")
     assert "Version: " + version in (ROOT / "src/bibliosleuth_ai/about.txt").read_text(encoding="utf-8")
     guide = (ROOT / "docs/user-guide.html").read_text(encoding="utf-8")
-    release = (ROOT / "docs/mobileread-release-template.md").read_text(encoding="utf-8")
     assert "<b>Version:</b> " + version in guide
-    assert "Current version: " + version in release
 
 
 def test_user_guide_html_is_balanced_and_theme_aware():

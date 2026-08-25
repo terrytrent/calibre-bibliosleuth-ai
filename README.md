@@ -384,8 +384,7 @@ checks first-party GitHub Action versions weekly.
 
 See [CHANGELOG.md](CHANGELOG.md), [SECURITY.md](SECURITY.md), and
 [CONTRIBUTING.md](CONTRIBUTING.md). A module-by-module map and common commands are
-in [docs/development.md](docs/development.md). The MobileRead release-thread checklist and
-first-post template are in [docs/mobileread-release-template.md](docs/mobileread-release-template.md).
+in [docs/development.md](docs/development.md).
 
 ## Support and limitations
 
