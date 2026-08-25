@@ -45,6 +45,49 @@ actionable failure recovery.
 BiblioSleuth AI is an independent community plugin. It is not affiliated with or
 endorsed by Calibre or OpenAI.
 
+## Demo
+
+<p align="center">
+  <img src="assets/demo.gif" alt="BiblioSleuth AI researching and reviewing EPUB metadata in Calibre" width="800">
+</p>
+
+### Workflow highlights
+
+**Guided setup:** The first-run assistant explains what BiblioSleuth AI does and
+walks new users through the required configuration.
+
+<p align="center">
+  <img src="assets/screenshot-guided-setup.png" alt="BiblioSleuth AI guided first-run setup in Calibre" width="800">
+</p>
+
+**Background research:** Metadata retrieval runs as a native, cancellable Calibre
+job with visible status, progress, and elapsed time.
+
+<p align="center">
+  <img src="assets/screenshot-background-job.png" alt="BiblioSleuth AI metadata research running in Calibre's Jobs window" width="800">
+</p>
+
+**Field-level review:** Current and proposed metadata appear side by side with
+confidence, evidence, usage, and cost information before anything is applied.
+
+<p align="center">
+  <img src="assets/screenshot-metadata-review.png" alt="BiblioSleuth AI field-level metadata review window" width="800">
+</p>
+
+**Complete comparison:** A scrollable detail view makes long values, identifiers,
+confidence levels, and supporting evidence easier to inspect.
+
+<p align="center">
+  <img src="assets/screenshot-full-comparison.png" alt="BiblioSleuth AI complete current and proposed metadata comparison" width="800">
+</p>
+
+**Performance statistics:** Local, privacy-preserving statistics summarize lookup
+speed, timing stages, outcomes, token usage, cache hits, and estimated cost.
+
+<p align="center">
+  <img src="assets/screenshot-statistics.png" alt="BiblioSleuth AI retrieval performance and usage statistics" width="800">
+</p>
+
 ## Project status
 
 **Stable.** BiblioSleuth AI is usable for normal single-book and small-batch metadata
