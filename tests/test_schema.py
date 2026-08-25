@@ -2,7 +2,7 @@ import copy
 
 import pytest
 
-from calibre_ai_plugin.schema import SchemaValidationError, metadata_schema, normalize_requested_fields, validate_metadata, validate_prompt_review
+from bibliosleuth_ai.schema import SchemaValidationError, metadata_schema, normalize_requested_fields, validate_metadata, validate_prompt_review
 
 
 def valid_result():

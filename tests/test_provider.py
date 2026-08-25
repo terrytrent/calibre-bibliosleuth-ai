@@ -4,8 +4,8 @@ from urllib.error import HTTPError
 
 import pytest
 
-from calibre_ai_plugin.openai_provider import MAX_RESPONSE_BYTES, OpenAIProvider, ProviderError
-from calibre_ai_plugin.schema import SchemaValidationError
+from bibliosleuth_ai.openai_provider import MAX_RESPONSE_BYTES, OpenAIProvider, ProviderError
+from bibliosleuth_ai.schema import SchemaValidationError
 from tests.test_schema import valid_result
 
 

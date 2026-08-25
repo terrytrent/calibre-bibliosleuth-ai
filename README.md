@@ -296,7 +296,7 @@ docs/                       User guide and release material
 docs/wiki/                  Canonical, reviewable GitHub Wiki source
 scripts/                    Build and packaging tools
 Makefile                    Shortcuts for test/build/verify/install/release
-src/calibre_ai_plugin/      Runtime plugin source and bundled metadata
+src/bibliosleuth_ai/      Runtime plugin source and bundled metadata
 tests/                      Calibre-independent automated tests
 build/                      Generated dependency cache (ignored by Git)
 dist/                       Generated ZIP and checksum (not committed)
@@ -305,7 +305,7 @@ dist/                       Generated ZIP and checksum (not committed)
 Calibre plugins require their Python modules and resources at the root of the
 installed ZIP. The build script deliberately maps the organized source tree into
 that flat installation layout and extracts approved pure-Python modules from the
-downloaded wheel; do not install `src/calibre_ai_plugin` directly. Runtime dependency
+downloaded wheel; do not install `src/bibliosleuth_ai` directly. Runtime dependency
 versions and hashes are recorded in `requirements-runtime.txt`. The first build (and
 the first build after `make clean`) downloads the pinned wheel from PyPI into the
 Git-ignored `build/vendor-cache` directory. The builder verifies its SHA-256 hash

@@ -1,4 +1,4 @@
-from calibre_ai_plugin.lookup_cache import SessionLookupCache, epub_file_signature, epub_fingerprint, research_cache_key
+from bibliosleuth_ai.lookup_cache import SessionLookupCache, epub_file_signature, epub_fingerprint, research_cache_key
 
 
 def settings(**updates):

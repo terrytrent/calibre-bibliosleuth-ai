@@ -2,7 +2,7 @@ import ast
 from pathlib import Path
 
 
-ACTION = Path(__file__).resolve().parents[1] / "src/calibre_ai_plugin/action.py"
+ACTION = Path(__file__).resolve().parents[1] / "src/bibliosleuth_ai/action.py"
 
 
 def _start_method():

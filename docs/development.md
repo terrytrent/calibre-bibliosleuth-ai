@@ -4,7 +4,7 @@
 
 | Path | Purpose |
 | --- | --- |
-| `src/calibre_ai_plugin/` | Python code and small metadata files loaded by Calibre |
+| `src/bibliosleuth_ai/` | Python code and small metadata files loaded by Calibre |
 | `assets/` | Artwork copied into the plugin ZIP |
 | `docs/` | User, developer, release, and canonical GitHub Wiki documentation |
 | `scripts/` | Deterministic packaging tools |

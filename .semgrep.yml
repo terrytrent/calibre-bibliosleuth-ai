@@ -20,8 +20,8 @@ rules:
     severity: ERROR
     languages: [python]
     paths:
-      include: [/src/calibre_ai_plugin]
-      exclude: [/src/calibre_ai_plugin/openai_provider.py]
+      include: [/src/bibliosleuth_ai]
+      exclude: [/src/bibliosleuth_ai/openai_provider.py]
     pattern-either:
       - pattern: urllib.request.urlopen(...)
       - pattern: requests.$METHOD(...)
@@ -41,7 +41,7 @@ rules:
     severity: ERROR
     languages: [python]
     paths:
-      include: [/src/calibre_ai_plugin/openai_provider.py]
+      include: [/src/bibliosleuth_ai/openai_provider.py]
     patterns:
       - pattern: |
           $PAYLOAD = {

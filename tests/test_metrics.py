@@ -1,7 +1,7 @@
 import csv
 import os
 
-from calibre_ai_plugin.metrics import MetricsStore, filter_records, group_summaries, percentile, summarize
+from bibliosleuth_ai.metrics import MetricsStore, filter_records, group_summaries, percentile, summarize
 
 
 def sample(seconds=10, outcome="applied", cache=False, preset="balanced"):

@@ -15,6 +15,8 @@ All notable changes to BiblioSleuth AI are documented here.
 - Added privacy-conscious bug reports, feature requests, and pull-request templates.
 - Changed tagged releases to publish the matching version section from this
   changelog instead of GitHub's generic generated “Full Changelog” notes.
+- Completed the internal package rename and removed legacy branding remnants
+  from source paths, automation, documentation, tests, and generated artifacts.
 
 ## 1.0.0 — 2026-08-25
 

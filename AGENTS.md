@@ -37,7 +37,7 @@ in subdirectories.
 - Do not commit, tag, push, publish a release, or install the plugin merely because
   code is ready. Perform those operations only when requested. A request to build
   and install does authorize replacing the locally installed plugin.
-- Keep the worktree organized. Runtime source belongs in `src/calibre_ai_plugin/`,
+- Keep the worktree organized. Runtime source belongs in `src/bibliosleuth_ai/`,
   tests in `tests/`, documentation in `docs/`, artwork in `assets/`, and tooling in
   `scripts/`. Do not scatter duplicate runtime files at repository root.
 - Use `apply_patch` for hand edits. Preserve a dirty worktree and never use

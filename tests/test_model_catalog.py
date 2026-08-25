@@ -1,4 +1,4 @@
-from calibre_ai_plugin.model_catalog import cache_is_fresh, normalize_models, safe_model_id, store_models
+from bibliosleuth_ai.model_catalog import cache_is_fresh, normalize_models, safe_model_id, store_models
 
 
 def test_catalog_filters_snapshots_and_non_research_models():
