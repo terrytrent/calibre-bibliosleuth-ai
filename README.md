@@ -3,6 +3,8 @@
 [![CI](../../actions/workflows/tests.yml/badge.svg)](../../actions/workflows/tests.yml)
 [![Security](../../actions/workflows/security.yml/badge.svg)](../../actions/workflows/security.yml)
 [![Code Quality](../../actions/workflows/quality.yml/badge.svg)](../../actions/workflows/quality.yml)
+[![Assurance](../../actions/workflows/assurance.yml/badge.svg)](../../actions/workflows/assurance.yml)
+[![Calibre Compatibility](../../actions/workflows/calibre-compatibility.yml/badge.svg)](../../actions/workflows/calibre-compatibility.yml)
 [![Tagged Release](https://img.shields.io/github/v/release/terrytrent/calibre-bibliosleuth-ai?display_name=tag&label=tagged%20release)](https://github.com/terrytrent/calibre-bibliosleuth-ai/releases/latest)
 [![History: CHANGELOG](https://img.shields.io/badge/History-CHANGELOG-007ec6.svg)](CHANGELOG.md)
 [![Status: Stable](https://img.shields.io/badge/Status-Stable-44a833.svg)](#project-status)
@@ -44,6 +46,12 @@ research. Releases pass the automated test, packaging, security, and quality
 checks shown above. Because metadata is generated from AI-assisted web research,
 users should still review proposed values before applying them. See the
 [changelog](CHANGELOG.md) for release history and known changes.
+
+Pull requests and releases are additionally checked for dependency changes,
+project-specific security invariants, workflow vulnerabilities, documentation
+quality, link integrity, coverage regressions, and real plugin installation in
+the oldest and current supported Calibre releases. Release downloads include a
+CycloneDX SBOM, SHA-256 checksum, and GitHub artifact attestations.
 
 To correct a proposed value before applying it, select the field and click
 **Edit proposed value…** (or double-click its field/proposed-value cell). The
@@ -279,6 +287,7 @@ The repository is organized by purpose:
 ```text
 assets/                     Plugin artwork
 docs/                       User guide and release material
+docs/wiki/                  Canonical, reviewable GitHub Wiki source
 scripts/                    Build and packaging tools
 Makefile                    Shortcuts for test/build/verify/install/release
 src/calibre_ai_plugin/      Runtime plugin source and bundled metadata
@@ -313,7 +322,8 @@ The ZIP is deterministic for identical committed inputs. GitHub Actions runs
 the core suite and byte-compilation checks on current Ubuntu, macOS, and Windows
 runners with Python 3.11 and 3.13, then performs one deterministic package and
 checksum verification after the matrix passes. Native Calibre UI integration
-still requires manual testing in Calibre. Obsolete branch/PR runs are cancelled,
+still requires manual testing in Calibre, while a separate compatibility workflow
+installs and registers the built ZIP in Calibre 7.0.0 and 9.13.0 on Linux. Obsolete branch/PR runs are cancelled,
 and branch pushes run continuously only for `main` to avoid duplicate checks.
 
 The badges at the top of this README link to the latest CI, security, and
@@ -329,6 +339,13 @@ broader linters and analyzers and records code smells and maintainability metric
 those reports remain informational while existing style debt is improved
 incrementally. Complete reports are retained as workflow artifacts for 30 days.
 The dedicated security workflow remains the strict vulnerability gate.
+
+The assurance workflow reviews dependency changes, enforces five project-specific
+Semgrep invariants, audits workflow syntax and security with actionlint and zizmor,
+checks Markdown and links, and prevents total headless test coverage from dropping
+below the current 35% baseline. All workflow actions—not only third-party scanners—
+are pinned to immutable commit IDs. Canonical pages under `docs/wiki/` are validated
+on pull requests and synchronized to the GitHub Wiki after merging to `main`.
 
 ### Tagged GitHub releases
 
@@ -346,9 +363,11 @@ The workflow refuses non-`vMAJOR.MINOR.PATCH` tags, tags whose commit is not on
 `main`, and tags that disagree with the plugin version. It then runs the complete
 Windows/macOS/Linux test matrix, Bandit, CodeQL, and Trivy security scans, and a
 Qlty analysis. It then builds the deterministic ZIP, verifies its contents and
-checksum, and uploads both files to a generated GitHub Release. Only the
-publisher job receives `contents: write`; all earlier jobs are read-only.
-Third-party scanner actions are pinned to immutable commit hashes, and checkout
+checksum, generates a CycloneDX SBOM, creates GitHub artifact attestations, and
+uploads the ZIP, checksum, and SBOM to a generated GitHub Release. Only the
+publisher job receives `contents: write`; the package job receives only the
+identity permissions required to create attestations, and all other jobs are read-only.
+Every action is pinned to an immutable commit hash, and checkout
 credentials are not retained. Failed gates do not create a release.
 
 CodeQL must be available for the repository. Public repositories support it

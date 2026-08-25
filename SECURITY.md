@@ -56,7 +56,10 @@ previews enumerate included files and excluded data before saving.
 Tagged releases run the full supported operating-system/Python test matrix,
 Bandit static analysis, Trivy dependency/secret/configuration scanning, Qlty,
 and GitHub CodeQL with the extended security query suite,
-deterministic packaging, ZIP integrity validation, and SHA-256 verification.
+dependency-change review, repository-specific Semgrep invariants, actionlint and
+zizmor workflow auditing, deterministic packaging, ZIP integrity validation, and
+SHA-256 verification. Third-party and GitHub Actions are pinned to immutable commit
+IDs. Published assets include a CycloneDX SBOM and GitHub artifact attestations.
 Release publication is the only workflow job with repository write permission;
 test, analysis, and build jobs use read-only contents access. This automation
 supplements rather than replaces manual review of security-sensitive changes.

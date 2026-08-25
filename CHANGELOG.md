@@ -2,6 +2,18 @@
 
 All notable changes to BiblioSleuth AI are documented here.
 
+## Unreleased
+
+### Project assurance
+
+- Added dependency review, project-specific Semgrep rules, actionlint/zizmor
+  workflow auditing, documentation/link checks, and a coverage non-regression gate.
+- Added automated installation checks against the oldest and current supported
+  Calibre releases and reviewable source synchronization for the GitHub Wiki.
+- Pinned every workflow action to an immutable commit and added release SBOMs and
+  GitHub artifact attestations.
+- Added privacy-conscious bug reports, feature requests, and pull-request templates.
+
 ## 1.0.0 — 2026-08-25
 
 Initial stable release of BiblioSleuth AI for Calibre.

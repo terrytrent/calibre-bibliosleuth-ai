@@ -1,0 +1,57 @@
+rules:
+  - id: bibliosleuth-no-stdlib-xml-parser
+    message: Untrusted EPUB XML must use the bundled defusedxml parser.
+    severity: ERROR
+    languages: [python]
+    pattern-either:
+      - pattern: import xml.etree.ElementTree
+      - pattern: from xml.etree import ElementTree
+
+  - id: bibliosleuth-no-unchecked-zip-extraction
+    message: ZIP members must be read through the bounded EPUB/build handlers, never extracted directly.
+    severity: ERROR
+    languages: [python]
+    pattern-either:
+      - pattern: $ZIP.extract(...)
+      - pattern: $ZIP.extractall(...)
+
+  - id: bibliosleuth-network-boundary
+    message: Runtime HTTP calls belong in the hardened OpenAI provider boundary.
+    severity: ERROR
+    languages: [python]
+    paths:
+      include: [/src/calibre_ai_plugin]
+      exclude: [/src/calibre_ai_plugin/openai_provider.py]
+    pattern-either:
+      - pattern: urllib.request.urlopen(...)
+      - pattern: requests.$METHOD(...)
+      - pattern: httpx.$METHOD(...)
+
+  - id: bibliosleuth-no-shell-execution
+    message: Do not enable shell command interpretation in plugin or build code.
+    severity: ERROR
+    languages: [python]
+    paths:
+      include: [src, scripts]
+    patterns:
+      - pattern: subprocess.$FUNC(..., shell=True, ...)
+
+  - id: bibliosleuth-openai-store-disabled
+    message: OpenAI Responses API payloads must explicitly disable storage.
+    severity: ERROR
+    languages: [python]
+    paths:
+      include: [/src/calibre_ai_plugin/openai_provider.py]
+    patterns:
+      - pattern: |
+          $PAYLOAD = {
+            ...,
+            "store": $VALUE,
+            ...
+          }
+      - pattern-not: |
+          $PAYLOAD = {
+            ...,
+            "store": False,
+            ...
+          }

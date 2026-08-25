@@ -1,0 +1,43 @@
+name: Publish Wiki
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "docs/wiki/**"
+      - ".github/workflows/wiki.yml"
+  workflow_dispatch:
+
+concurrency:
+  group: publish-wiki
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  publish:
+    name: Validate and publish wiki
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write # Push reviewed canonical pages to the GitHub Wiki.
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+      - name: Validate local wiki links
+        run: python scripts/validate_wiki.py docs/wiki
+      - name: Publish canonical pages
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          wiki_dir="$RUNNER_TEMP/wiki"
+          git clone "https://x-access-token:${GH_TOKEN}@github.com/${GITHUB_REPOSITORY}.wiki.git" "$wiki_dir"
+          find "$wiki_dir" -maxdepth 1 -type f -name '*.md' -delete
+          cp docs/wiki/*.md "$wiki_dir/"
+          git -C "$wiki_dir" config user.name "github-actions[bot]"
+          git -C "$wiki_dir" config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git -C "$wiki_dir" add --all
+          if git -C "$wiki_dir" diff --cached --quiet; then exit 0; fi
+          git -C "$wiki_dir" commit -m "docs: synchronize wiki from ${GITHUB_SHA}"
+          git -C "$wiki_dir" push origin HEAD:master

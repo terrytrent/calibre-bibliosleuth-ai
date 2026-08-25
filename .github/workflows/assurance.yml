@@ -1,0 +1,110 @@
+name: Assurance
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  schedule:
+    - cron: "41 8 * * 1"
+  workflow_dispatch:
+
+concurrency:
+  group: assurance-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  dependency-review:
+    name: Dependency review
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+      - uses: actions/dependency-review-action@2031cfc080254a8a887f58cffee85186f0e49e48 # v4.9.0
+        with:
+          fail-on-severity: moderate
+          deny-licenses: AGPL-1.0-only, AGPL-1.0-or-later, AGPL-3.0-only, AGPL-3.0-or-later
+
+  workflow-policy:
+    name: Workflow policy
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+      - name: Validate workflow syntax
+        run: go run github.com/rhysd/actionlint/cmd/actionlint@v1.7.7
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7
+        with:
+          python-version: "3.13"
+      - name: Audit workflow security
+        run: |
+          python -m pip install --disable-pip-version-check zizmor==1.29.0
+          zizmor --persona=pedantic .github/workflows
+
+  semgrep:
+    name: Project security invariants
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7
+        with:
+          python-version: "3.13"
+      - name: Run repository-owned Semgrep rules
+        run: |
+          python -m pip install --disable-pip-version-check semgrep==1.174.0
+          semgrep scan --metrics=off --config .semgrep.yml --error --strict src scripts
+
+  documentation:
+    name: Documentation and links
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+      - name: Lint Markdown
+        run: npx --yes markdownlint-cli2@0.23.2
+      - name: Validate documentation links
+        uses: lycheeverse/lychee-action@e7477775783ea5526144ba13e8db5eec57747ce8 # v2
+        with:
+          args: >-
+            --no-progress --max-retries 2 --timeout 20
+            --accept 200,206,429
+            README.md CHANGELOG.md CONTRIBUTING.md SECURITY.md
+            docs/**/*.md docs/**/*.html
+          fail: true
+          jobSummary: true
+
+  coverage:
+    name: Coverage non-regression
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7
+        with:
+          python-version: "3.13"
+      - name: Install test tooling and runtime dependencies
+        run: |
+          python -m pip install --disable-pip-version-check pytest==9.1.1 pytest-cov==7.1.0
+          python -m pip install --disable-pip-version-check --require-hashes -r requirements-runtime.txt
+      - name: Run branch coverage with the current headless baseline
+        run: >-
+          python -m pytest -q
+          --cov=src/calibre_ai_plugin --cov-branch
+          --cov-report=term-missing --cov-report=xml
+          --cov-fail-under=35
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        if: always()
+        with:
+          name: coverage-report
+          path: coverage.xml
+          if-no-files-found: warn
+          retention-days: 30
