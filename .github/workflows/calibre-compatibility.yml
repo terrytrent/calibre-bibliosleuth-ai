@@ -57,8 +57,8 @@ jobs:
           CALIBRE_CONFIG_DIRECTORY: ${{ runner.temp }}/calibre-config
           QT_QPA_PLATFORM: offscreen
         run: |
-          "$RUNNER_TEMP/calibre/calibre-customize" --add-plugin dist/BiblioSleuth-AI.zip
-          "$RUNNER_TEMP/calibre/calibre-customize" --list-plugins | tee calibre-plugins.txt
+          "$RUNNER_TEMP/calibre/calibre/calibre-customize" --add-plugin dist/BiblioSleuth-AI.zip
+          "$RUNNER_TEMP/calibre/calibre/calibre-customize" --list-plugins | tee calibre-plugins.txt
           grep -F "BiblioSleuth AI" calibre-plugins.txt
       - name: Preserve registration output
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
