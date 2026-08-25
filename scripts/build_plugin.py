@@ -7,7 +7,7 @@ import zipfile
 
 
 ROOT = pathlib.Path(__file__).resolve().parents[1]
-SOURCE = ROOT / "src" / "calibre_ai_plugin"
+SOURCE = ROOT / "src" / "bibliosleuth_ai"
 DIST = ROOT / "dist"
 DEPENDENCY_CACHE = ROOT / "build" / "vendor-cache"
 RUNTIME_REQUIREMENTS = ROOT / "requirements-runtime.txt"

@@ -99,7 +99,7 @@ jobs:
       - name: Run branch coverage with the current headless baseline
         run: >-
           python -m pytest -q
-          --cov=src/calibre_ai_plugin --cov-branch
+          --cov=src/bibliosleuth_ai --cov-branch
           --cov-report=term-missing --cov-report=xml
           --cov-fail-under=35
       - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7

@@ -1,4 +1,4 @@
-from calibre_ai_plugin.normalizer import normalize_identifiers, normalize_tags, sanitize_comments
+from bibliosleuth_ai.normalizer import normalize_identifiers, normalize_tags, sanitize_comments
 
 
 def test_normalizes_identifiers_and_tags():

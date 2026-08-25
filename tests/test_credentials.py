@@ -1,6 +1,6 @@
 from types import SimpleNamespace
 
-from calibre_ai_plugin import credentials
+from bibliosleuth_ai import credentials
 
 
 def test_linux_secret_service_uses_stdin_not_argv(monkeypatch):

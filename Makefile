@@ -29,6 +29,6 @@ install: build
 	"$(CALIBRE_CUSTOMIZE)" -a "$(abspath $(PLUGIN_ZIP))"
 
 clean:
-	rm -rf dist build .pytest_cache tests/__pycache__ src/calibre_ai_plugin/__pycache__
+	rm -rf dist build .pytest_cache tests/__pycache__ src/bibliosleuth_ai/__pycache__
 
 release: test verify

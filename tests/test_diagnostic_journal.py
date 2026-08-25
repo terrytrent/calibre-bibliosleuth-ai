@@ -1,7 +1,7 @@
 import json
 import zipfile
 
-from calibre_ai_plugin.diagnostic_journal import DiagnosticJournal, sanitize_diagnostic_text
+from bibliosleuth_ai.diagnostic_journal import DiagnosticJournal, sanitize_diagnostic_text
 
 
 def test_sanitizer_removes_keys_urls_and_home_paths():

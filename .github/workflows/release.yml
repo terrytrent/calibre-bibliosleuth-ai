@@ -38,7 +38,7 @@ jobs:
         id: version
         shell: bash
         run: |
-          plugin_version="$(PYTHONPATH=src python -c 'from calibre_ai_plugin import BiblioSleuthAIPlugin; from calibre_ai_plugin.constants import PLUGIN_VERSION; assert BiblioSleuthAIPlugin.version == PLUGIN_VERSION; print(".".join(map(str, PLUGIN_VERSION)))')"
+          plugin_version="$(PYTHONPATH=src python -c 'from bibliosleuth_ai import BiblioSleuthAIPlugin; from bibliosleuth_ai.constants import PLUGIN_VERSION; assert BiblioSleuthAIPlugin.version == PLUGIN_VERSION; print(".".join(map(str, PLUGIN_VERSION)))')"
           tag_version="${GITHUB_REF_NAME#v}"
           test "$plugin_version" = "$tag_version"
           echo "version=$plugin_version" >> "$GITHUB_OUTPUT"
@@ -76,7 +76,7 @@ jobs:
           python-version: "3.13"
       - run: python -m pip install --disable-pip-version-check bandit==1.9.4
       - name: Scan application and build code
-        run: bandit --recursive --severity-level medium --confidence-level medium src/calibre_ai_plugin scripts
+        run: bandit --recursive --severity-level medium --confidence-level medium src/bibliosleuth_ai scripts
 
   dependencies:
     name: Python dependency vulnerability audit

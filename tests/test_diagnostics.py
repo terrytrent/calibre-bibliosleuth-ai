@@ -1,4 +1,4 @@
-from calibre_ai_plugin.diagnostics import diagnostic_report
+from bibliosleuth_ai.diagnostics import diagnostic_report
 
 
 def test_diagnostics_are_useful_and_redacted():

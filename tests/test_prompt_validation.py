@@ -1,7 +1,7 @@
 import copy
 
-from calibre_ai_plugin.constants import DEFAULT_SYSTEM_PROMPT
-from calibre_ai_plugin.prompt_validation import (
+from bibliosleuth_ai.constants import DEFAULT_SYSTEM_PROMPT
+from bibliosleuth_ai.prompt_validation import (
     local_prompt_issues, prompt_digest, validate_and_repair_prompt, validation_matches_prompt,
 )
 from tests.test_schema import valid_result

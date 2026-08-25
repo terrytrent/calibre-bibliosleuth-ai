@@ -1,6 +1,6 @@
 import pytest
 
-from calibre_ai_plugin.usage import estimate_cost_usd, format_usage
+from bibliosleuth_ai.usage import estimate_cost_usd, format_usage
 
 
 def sample_usage():

@@ -2,7 +2,7 @@ import re
 from html.parser import HTMLParser
 from pathlib import Path
 
-from calibre_ai_plugin.constants import PLUGIN_VERSION
+from bibliosleuth_ai.constants import PLUGIN_VERSION
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -27,7 +27,7 @@ class _HTMLStructure(HTMLParser):
 def test_documented_versions_match_plugin():
     version = ".".join(map(str, PLUGIN_VERSION))
     assert "**Version:** " + version in (ROOT / "README.md").read_text(encoding="utf-8")
-    assert "Version: " + version in (ROOT / "src/calibre_ai_plugin/about.txt").read_text(encoding="utf-8")
+    assert "Version: " + version in (ROOT / "src/bibliosleuth_ai/about.txt").read_text(encoding="utf-8")
     guide = (ROOT / "docs/user-guide.html").read_text(encoding="utf-8")
     release = (ROOT / "docs/mobileread-release-template.md").read_text(encoding="utf-8")
     assert "<b>Version:</b> " + version in guide

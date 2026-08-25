@@ -39,7 +39,7 @@ tests, Bandit, CodeQL, deterministic packaging, ZIP validation, and checksum
 verification pass. Do not replace a failed release tag; fix the cause, increment
 the version, merge it, and create a new tag.
 
-Runtime code belongs in `src/calibre_ai_plugin`, artwork in `assets`, user and
+Runtime code belongs in `src/bibliosleuth_ai`, artwork in `assets`, user and
 release documentation in `docs`, packaging utilities in `scripts`, and tests in
 `tests`. When adding a runtime file or bundled resource, add its source-to-ZIP
 mapping in `scripts/build_plugin.py`; the generated Calibre ZIP intentionally has

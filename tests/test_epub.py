@@ -2,7 +2,7 @@ import zipfile
 
 import pytest
 
-from calibre_ai_plugin.epub import EpubExtractionError, epub_structural_diagnostics, extract_epub, instruction_risk_score
+from bibliosleuth_ai.epub import EpubExtractionError, epub_structural_diagnostics, extract_epub, instruction_risk_score
 
 
 CONTAINER = '''<?xml version="1.0"?><container xmlns="urn:oasis:names:tc:opendocument:xmlns:container"><rootfiles><rootfile full-path="OEBPS/content.opf"/></rootfiles></container>'''
