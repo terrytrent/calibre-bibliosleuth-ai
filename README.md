@@ -1,11 +1,17 @@
 # BiblioSleuth AI for Calibre
 
+<p align="center">
+  <img src="assets/icon.png" alt="BiblioSleuth AI blue metadata-tag icon" width="140">
+</p>
+
 [![CI](https://github.com/terrytrent/calibre-bibliosleuth-ai/actions/workflows/tests.yml/badge.svg)](https://github.com/terrytrent/calibre-bibliosleuth-ai/actions/workflows/tests.yml)
 [![Security](https://github.com/terrytrent/calibre-bibliosleuth-ai/actions/workflows/security.yml/badge.svg)](https://github.com/terrytrent/calibre-bibliosleuth-ai/actions/workflows/security.yml)
 [![Code Quality](https://github.com/terrytrent/calibre-bibliosleuth-ai/actions/workflows/quality.yml/badge.svg)](https://github.com/terrytrent/calibre-bibliosleuth-ai/actions/workflows/quality.yml)
 [![Assurance](https://github.com/terrytrent/calibre-bibliosleuth-ai/actions/workflows/assurance.yml/badge.svg)](https://github.com/terrytrent/calibre-bibliosleuth-ai/actions/workflows/assurance.yml)
 [![Calibre Compatibility](https://github.com/terrytrent/calibre-bibliosleuth-ai/actions/workflows/calibre-compatibility.yml/badge.svg)](https://github.com/terrytrent/calibre-bibliosleuth-ai/actions/workflows/calibre-compatibility.yml)
 [![Tagged Release](https://img.shields.io/github/v/release/terrytrent/calibre-bibliosleuth-ai?display_name=tag&label=tagged%20release)](https://github.com/terrytrent/calibre-bibliosleuth-ai/releases/latest)
+[![Release Downloads](https://img.shields.io/github/downloads/terrytrent/calibre-bibliosleuth-ai/total?label=downloads)](https://github.com/terrytrent/calibre-bibliosleuth-ai/releases)
+[![Last Commit](https://img.shields.io/github/last-commit/terrytrent/calibre-bibliosleuth-ai?label=last%20commit)](https://github.com/terrytrent/calibre-bibliosleuth-ai/commits/main)
 [![History: CHANGELOG](https://img.shields.io/badge/History-CHANGELOG-007ec6.svg)](CHANGELOG.md)
 [![Status: Stable](https://img.shields.io/badge/Status-Stable-44a833.svg)](#project-status)
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)

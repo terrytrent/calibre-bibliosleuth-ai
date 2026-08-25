@@ -106,11 +106,15 @@ def test_readme_has_live_pipeline_badges():
     for workflow in ("tests.yml", "security.yml", "quality.yml", "assurance.yml", "calibre-compatibility.yml"):
         assert f"actions/workflows/{workflow}/badge.svg" in text
     assert "img.shields.io/github/v/release/terrytrent/calibre-bibliosleuth-ai" in text
+    assert "img.shields.io/github/downloads/terrytrent/calibre-bibliosleuth-ai/total" in text
+    assert "img.shields.io/github/last-commit/terrytrent/calibre-bibliosleuth-ai" in text
     assert "github.com/terrytrent/calibre-bibliosleuth-ai/releases/latest" in text
     assert "History-CHANGELOG" in text
     assert "](CHANGELOG.md)" in text
     assert "Status-Stable" in text
     assert "](#project-status)" in text
+    assert '<img src="assets/icon.png"' in text
+    assert 'alt="BiblioSleuth AI blue metadata-tag icon"' in text
 
 
 def test_assurance_and_compatibility_workflows_cover_project_specific_risks():
