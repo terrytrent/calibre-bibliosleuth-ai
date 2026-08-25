@@ -3,10 +3,10 @@
 ## Repository map
 
 | Path | Purpose |
-|---|---|
+| --- | --- |
 | `src/calibre_ai_plugin/` | Python code and small metadata files loaded by Calibre |
 | `assets/` | Artwork copied into the plugin ZIP |
-| `docs/` | User, developer, and release documentation |
+| `docs/` | User, developer, release, and canonical GitHub Wiki documentation |
 | `scripts/` | Deterministic packaging tools |
 | `Makefile` | Memorable shortcuts around tests, packaging, verification, and installation |
 | `tests/` | Calibre-independent unit and packaging tests |
@@ -71,6 +71,21 @@ such as `v1.0.0`. The version must match the plugin and documentation. The tagge
 release workflow verifies main ancestry, runs the complete test matrix, Bandit,
 CodeQL, Trivy, dependency auditing, and the blocking Ruff correctness gate, builds
 and re-verifies the package, and creates the GitHub Release with
-`BiblioSleuth-AI.zip` and `BiblioSleuth-AI.zip.sha256`. Continuous workflows run on `main`
-and pull requests with concurrency cancellation to avoid duplicate obsolete jobs.
+`BiblioSleuth-AI.zip`, its SHA-256 checksum, and a CycloneDX SBOM. The build job
+also creates GitHub artifact attestations for those assets. Continuous workflows
+run on `main` and pull requests with concurrency cancellation to avoid duplicate
+obsolete jobs. They include dependency review, repository-owned Semgrep rules,
+actionlint and zizmor workflow checks, Markdown/link validation, a 35% total
+headless-coverage non-regression floor, and installation checks against Calibre
+7.0.0 and the current documented Calibre release. The baseline includes UI modules
+that require Calibre/Qt and therefore cannot be imported by the headless unit suite;
+raise it as integration coverage is added.
+
+The publisher extracts the matching `## MAJOR.MINOR.PATCH` section from
+`CHANGELOG.md` and uses that content as the GitHub Release description. A missing
+or empty version section fails the release instead of publishing generic generated
+notes. Update the changelog before creating the tag.
+
+Files in `docs/wiki/` are the canonical wiki source. Merges to `main` synchronize
+them to the repository wiki so changes remain reviewable and version controlled.
 See the README for exact commands.

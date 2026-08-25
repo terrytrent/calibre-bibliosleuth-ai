@@ -24,8 +24,11 @@ def test_tagged_release_workflow_has_all_required_gates():
         "python scripts/build_plugin.py",
         "sha256sum --check BiblioSleuth-AI.zip.sha256",
         'gh release create "$GITHUB_REF_NAME"',
+        "python scripts/extract_release_notes.py",
+        "--notes-file dist/release-notes.md",
     ):
         assert required in text
+    assert "--generate-notes" not in text
 
 
 def test_release_write_permission_is_scoped_to_publisher_job():
@@ -35,8 +38,19 @@ def test_release_write_permission_is_scoped_to_publisher_job():
     assert text.index("contents: write") > release
     assert "permissions:\n  contents: read" in text
     publisher = text[release:]
-    assert "actions/checkout@v7" in publisher
-    assert publisher.index("actions/checkout@v7") < publisher.index("actions/download-artifact@v8")
+    checkout = "actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1"
+    download = "actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c"
+    assert checkout in publisher
+    assert publisher.index(checkout) < publisher.index(download)
+
+
+def test_release_produces_an_sbom_and_attested_assets():
+    text = WORKFLOW.read_text(encoding="utf-8")
+    assert "anchore/sbom-action@e22c389904149dbc22b58101806040fa8d37a610" in text
+    assert "actions/attest@1e69f48acb82d1966a394da916b4c1698aa569d6" in text
+    assert "BiblioSleuth-AI.cdx.json" in text
+    assert "attestations: write" in text
+    assert "id-token: write" in text
 
 
 def test_continuous_security_workflow_has_required_scanners_and_schedule():
@@ -92,11 +106,37 @@ def test_ci_pins_tooling_and_builds_package_once_after_matrix():
 
 def test_readme_has_live_pipeline_badges():
     text = README.read_text(encoding="utf-8")
-    for workflow in ("tests.yml", "security.yml", "quality.yml"):
-        assert f"../../actions/workflows/{workflow}/badge.svg" in text
+    for workflow in ("tests.yml", "security.yml", "quality.yml", "assurance.yml", "calibre-compatibility.yml"):
+        assert f"actions/workflows/{workflow}/badge.svg" in text
     assert "img.shields.io/github/v/release/terrytrent/calibre-bibliosleuth-ai" in text
+    assert "img.shields.io/github/downloads/terrytrent/calibre-bibliosleuth-ai/total" in text
+    assert "img.shields.io/github/last-commit/terrytrent/calibre-bibliosleuth-ai" in text
     assert "github.com/terrytrent/calibre-bibliosleuth-ai/releases/latest" in text
     assert "History-CHANGELOG" in text
     assert "](CHANGELOG.md)" in text
     assert "Status-Stable" in text
     assert "](#project-status)" in text
+    assert '<img src="assets/icon.png"' in text
+    assert 'alt="BiblioSleuth AI blue metadata-tag icon"' in text
+
+
+def test_assurance_and_compatibility_workflows_cover_project_specific_risks():
+    assurance = (ROOT / ".github/workflows/assurance.yml").read_text(encoding="utf-8")
+    compatibility = (ROOT / ".github/workflows/calibre-compatibility.yml").read_text(encoding="utf-8")
+    for required in ("Dependency review", "Workflow policy", "Project security invariants", "Documentation and links", "Coverage non-regression"):
+        assert required in assurance
+    assert "semgrep==1.174.0" in assurance
+    assert "zizmor==1.29.0" in assurance
+    assert "--cov-fail-under=35" in assurance
+    assert "calibre-customize" in compatibility
+    assert 'calibre: ["7.0.0", "9.13.0"]' in compatibility
+
+
+def test_all_workflow_actions_are_immutably_pinned():
+    import re
+
+    for workflow in (ROOT / ".github/workflows").glob("*.yml"):
+        text = workflow.read_text(encoding="utf-8")
+        refs = re.findall(r"uses:\s+[^\s@]+@([^\s#]+)", text)
+        assert refs, workflow
+        assert all(re.fullmatch(r"[0-9a-f]{40}", ref) for ref in refs), workflow

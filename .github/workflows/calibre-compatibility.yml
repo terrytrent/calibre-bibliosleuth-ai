@@ -1,0 +1,70 @@
+name: Calibre Compatibility
+
+on:
+  pull_request:
+    paths:
+      - "src/**"
+      - "scripts/build_plugin.py"
+      - "requirements-runtime.txt"
+      - ".github/workflows/calibre-compatibility.yml"
+  push:
+    branches: [main]
+    paths:
+      - "src/**"
+      - "scripts/build_plugin.py"
+      - "requirements-runtime.txt"
+      - ".github/workflows/calibre-compatibility.yml"
+  schedule:
+    - cron: "17 9 * * 2"
+  workflow_dispatch:
+
+concurrency:
+  group: calibre-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  plugin-load:
+    name: Install and register in calibre ${{ matrix.calibre }}
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        calibre: ["7.0.0", "9.13.0"]
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7
+        with:
+          python-version: "3.13"
+      - name: Build plugin package
+        run: python scripts/build_plugin.py
+      - name: Install Calibre system libraries
+        run: |
+          sudo apt-get update
+          sudo apt-get install --no-install-recommends libegl1 libopengl0 libxcb-cursor0 libxkbcommon-x11-0
+      - name: Install isolated calibre runtime
+        env:
+          TEST_CALIBRE_VERSION: ${{ matrix.calibre }}
+        run: |
+          wget --https-only --secure-protocol=TLSv1_2 -q -O calibre-installer.sh https://download.calibre-ebook.com/linux-installer.sh
+          sh calibre-installer.sh install_dir="$RUNNER_TEMP/calibre" isolated=y version="$TEST_CALIBRE_VERSION"
+      - name: Install and discover plugin
+        env:
+          CALIBRE_CONFIG_DIRECTORY: ${{ runner.temp }}/calibre-config
+          QT_QPA_PLATFORM: offscreen
+        run: |
+          "$RUNNER_TEMP/calibre/calibre/calibre-customize" --add-plugin dist/BiblioSleuth-AI.zip
+          "$RUNNER_TEMP/calibre/calibre/calibre-customize" --list-plugins | tee calibre-plugins.txt
+          grep -F "BiblioSleuth AI" calibre-plugins.txt
+      - name: Preserve registration output
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        if: always()
+        with:
+          name: calibre-${{ matrix.calibre }}-registration
+          path: calibre-plugins.txt
+          if-no-files-found: warn
+          retention-days: 14

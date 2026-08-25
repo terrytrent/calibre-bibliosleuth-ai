@@ -1,0 +1,46 @@
+name: Bug report
+description: Report reproducible BiblioSleuth AI behavior
+title: "[Bug]: "
+labels: [bug]
+body:
+  - type: markdown
+    attributes:
+      value: Thanks for helping improve BiblioSleuth AI. Never paste an API key or copyrighted book text.
+  - type: input
+    id: calibre
+    attributes:
+      label: Calibre version
+    validations:
+      required: true
+  - type: input
+    id: plugin
+    attributes:
+      label: BiblioSleuth AI version
+    validations:
+      required: true
+  - type: dropdown
+    id: os
+    attributes:
+      label: Operating system
+      options: [Windows, macOS, Linux]
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce
+      description: Include the expected and actual result.
+    validations:
+      required: true
+  - type: textarea
+    id: diagnostics
+    attributes:
+      label: Redacted diagnostics
+      description: Attach a Collect Logs bundle if available. Confirm that it contains no API key or book text before uploading.
+  - type: checkboxes
+    id: safety
+    attributes:
+      label: Privacy check
+      options:
+        - label: I removed API keys, personal information, and copyrighted EPUB text.
+          required: true
