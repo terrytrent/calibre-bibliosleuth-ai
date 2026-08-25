@@ -6,17 +6,17 @@ It can propose title, authors, series and series index, tags, identifiers, publi
 
 ## Start here
 
-- [Installation and updates](Installation-and-Updates)
-- [Quick start](Quick-Start)
-- [Configuration](Configuration)
-- [Researching metadata](Researching-Metadata)
-- [Reviewing results](Reviewing-Results)
-- [Optimization and cost](Optimization-and-Cost)
-- [Custom prompts](Custom-Prompts)
-- [Privacy and security](Privacy-and-Security)
-- [Statistics and diagnostics](Statistics-and-Diagnostics)
-- [Troubleshooting](Troubleshooting)
-- [FAQ](FAQ)
+- [Installation and updates](Installation-and-Updates.md)
+- [Quick start](Quick-Start.md)
+- [Configuration](Configuration.md)
+- [Researching metadata](Researching-Metadata.md)
+- [Reviewing results](Reviewing-Results.md)
+- [Optimization and cost](Optimization-and-Cost.md)
+- [Custom prompts](Custom-Prompts.md)
+- [Privacy and security](Privacy-and-Security.md)
+- [Statistics and diagnostics](Statistics-and-Diagnostics.md)
+- [Troubleshooting](Troubleshooting.md)
+- [FAQ](FAQ.md)
 
 ## Project links
 

@@ -14,7 +14,7 @@ def main():
         for target in LINK.findall(path.read_text(encoding="utf-8")):
             if target.startswith(("http://", "https://", "#")):
                 continue
-            page = target.split("#", 1)[0]
+            page = pathlib.PurePosixPath(target.split("#", 1)[0]).stem
             if page and page not in pages:
                 failures.append("%s: missing wiki page %s" % (path.name, page))
     if failures:

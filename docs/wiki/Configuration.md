@@ -23,4 +23,4 @@ An empty override uses the bundled prompt. Use **View Default**, **Preview Effec
 
 ## Privacy and security
 
-This tab controls optional local statistics, diagnostic behavior, and related privacy settings. See [Privacy and security](Privacy-and-Security) before enabling verbose diagnostics.
+This tab controls optional local statistics, diagnostic behavior, and related privacy settings. See [Privacy and security](Privacy-and-Security.md) before enabling verbose diagnostics.

@@ -103,8 +103,8 @@ def test_ci_pins_tooling_and_builds_package_once_after_matrix():
 
 def test_readme_has_live_pipeline_badges():
     text = README.read_text(encoding="utf-8")
-    for workflow in ("tests.yml", "security.yml", "quality.yml"):
-        assert f"../../actions/workflows/{workflow}/badge.svg" in text
+    for workflow in ("tests.yml", "security.yml", "quality.yml", "assurance.yml", "calibre-compatibility.yml"):
+        assert f"actions/workflows/{workflow}/badge.svg" in text
     assert "img.shields.io/github/v/release/terrytrent/calibre-bibliosleuth-ai" in text
     assert "github.com/terrytrent/calibre-bibliosleuth-ai/releases/latest" in text
     assert "History-CHANGELOG" in text

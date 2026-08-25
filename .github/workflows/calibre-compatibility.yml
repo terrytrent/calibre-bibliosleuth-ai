@@ -42,6 +42,10 @@ jobs:
           python-version: "3.13"
       - name: Build plugin package
         run: python scripts/build_plugin.py
+      - name: Install Calibre system libraries
+        run: |
+          sudo apt-get update
+          sudo apt-get install --no-install-recommends libegl1 libopengl0 libxcb-cursor0 libxkbcommon-x11-0
       - name: Install isolated calibre runtime
         env:
           TEST_CALIBRE_VERSION: ${{ matrix.calibre }}

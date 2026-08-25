@@ -1,10 +1,10 @@
 # BiblioSleuth AI for Calibre
 
-[![CI](../../actions/workflows/tests.yml/badge.svg)](../../actions/workflows/tests.yml)
-[![Security](../../actions/workflows/security.yml/badge.svg)](../../actions/workflows/security.yml)
-[![Code Quality](../../actions/workflows/quality.yml/badge.svg)](../../actions/workflows/quality.yml)
-[![Assurance](../../actions/workflows/assurance.yml/badge.svg)](../../actions/workflows/assurance.yml)
-[![Calibre Compatibility](../../actions/workflows/calibre-compatibility.yml/badge.svg)](../../actions/workflows/calibre-compatibility.yml)
+[![CI](https://github.com/terrytrent/calibre-bibliosleuth-ai/actions/workflows/tests.yml/badge.svg)](https://github.com/terrytrent/calibre-bibliosleuth-ai/actions/workflows/tests.yml)
+[![Security](https://github.com/terrytrent/calibre-bibliosleuth-ai/actions/workflows/security.yml/badge.svg)](https://github.com/terrytrent/calibre-bibliosleuth-ai/actions/workflows/security.yml)
+[![Code Quality](https://github.com/terrytrent/calibre-bibliosleuth-ai/actions/workflows/quality.yml/badge.svg)](https://github.com/terrytrent/calibre-bibliosleuth-ai/actions/workflows/quality.yml)
+[![Assurance](https://github.com/terrytrent/calibre-bibliosleuth-ai/actions/workflows/assurance.yml/badge.svg)](https://github.com/terrytrent/calibre-bibliosleuth-ai/actions/workflows/assurance.yml)
+[![Calibre Compatibility](https://github.com/terrytrent/calibre-bibliosleuth-ai/actions/workflows/calibre-compatibility.yml/badge.svg)](https://github.com/terrytrent/calibre-bibliosleuth-ai/actions/workflows/calibre-compatibility.yml)
 [![Tagged Release](https://img.shields.io/github/v/release/terrytrent/calibre-bibliosleuth-ai?display_name=tag&label=tagged%20release)](https://github.com/terrytrent/calibre-bibliosleuth-ai/releases/latest)
 [![History: CHANGELOG](https://img.shields.io/badge/History-CHANGELOG-007ec6.svg)](CHANGELOG.md)
 [![Status: Stable](https://img.shields.io/badge/Status-Stable-44a833.svg)](#project-status)
