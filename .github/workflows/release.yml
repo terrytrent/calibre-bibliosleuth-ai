@@ -209,6 +209,13 @@ jobs:
           path: dist
       - name: Verify downloaded release assets
         run: cd dist && sha256sum --check BiblioSleuth-AI.zip.sha256
+      - name: Extract versioned release notes from the changelog
+        env:
+          RELEASE_VERSION: ${{ needs.validate_tag.outputs.version }}
+        run: >-
+          python scripts/extract_release_notes.py
+          --version "$RELEASE_VERSION"
+          --output dist/release-notes.md
       - name: Create GitHub release and upload assets
         env:
           GH_TOKEN: ${{ github.token }}
@@ -221,4 +228,4 @@ jobs:
             dist/BiblioSleuth-AI.cdx.json \
             --verify-tag \
             --title "BiblioSleuth AI $RELEASE_VERSION" \
-            --generate-notes
+            --notes-file dist/release-notes.md

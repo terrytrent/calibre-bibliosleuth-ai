@@ -81,6 +81,11 @@ headless-coverage non-regression floor, and installation checks against Calibre
 that require Calibre/Qt and therefore cannot be imported by the headless unit suite;
 raise it as integration coverage is added.
 
+The publisher extracts the matching `## MAJOR.MINOR.PATCH` section from
+`CHANGELOG.md` and uses that content as the GitHub Release description. A missing
+or empty version section fails the release instead of publishing generic generated
+notes. Update the changelog before creating the tag.
+
 Files in `docs/wiki/` are the canonical wiki source. Merges to `main` synchronize
 them to the repository wiki so changes remain reviewable and version controlled.
 See the README for exact commands.

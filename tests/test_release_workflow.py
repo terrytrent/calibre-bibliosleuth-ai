@@ -24,8 +24,11 @@ def test_tagged_release_workflow_has_all_required_gates():
         "python scripts/build_plugin.py",
         "sha256sum --check BiblioSleuth-AI.zip.sha256",
         'gh release create "$GITHUB_REF_NAME"',
+        "python scripts/extract_release_notes.py",
+        "--notes-file dist/release-notes.md",
     ):
         assert required in text
+    assert "--generate-notes" not in text
 
 
 def test_release_write_permission_is_scoped_to_publisher_job():

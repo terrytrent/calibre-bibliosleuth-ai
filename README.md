@@ -375,6 +375,8 @@ publisher job receives `contents: write`; the package job receives only the
 identity permissions required to create attestations, and all other jobs are read-only.
 Every action is pinned to an immutable commit hash, and checkout
 credentials are not retained. Failed gates do not create a release.
+The release description is the matching version section from `CHANGELOG.md`;
+the workflow refuses to publish when that section is missing or empty.
 
 CodeQL must be available for the repository. Public repositories support it
 directly; private repositories may require GitHub Code Security. Dependabot

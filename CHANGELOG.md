@@ -13,6 +13,8 @@ All notable changes to BiblioSleuth AI are documented here.
 - Pinned every workflow action to an immutable commit and added release SBOMs and
   GitHub artifact attestations.
 - Added privacy-conscious bug reports, feature requests, and pull-request templates.
+- Changed tagged releases to publish the matching version section from this
+  changelog instead of GitHub's generic generated “Full Changelog” notes.
 
 ## 1.0.0 — 2026-08-25
 
