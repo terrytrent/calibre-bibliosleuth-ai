@@ -14,6 +14,7 @@ debug() {
 
 cleanup() {
   debug "Stopping and removing container: $CONTAINER"
+  docker exec "$CONTAINER" sh -c 'chmod -R a+rwX /etc/searxng' >/dev/null 2>&1 || true
   docker rm -f "$CONTAINER" >/dev/null 2>&1 || true
   rm -rf "$TEMP_DIR"
   debug "Removed temporary configuration: $TEMP_DIR"

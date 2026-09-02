@@ -25,6 +25,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   passing the selected runtime through a quoted environment variable.
 - Allowed unreleased Keep a Changelog comparison links in CI link validation;
   those links become live when the matching release tag is published.
+- Fixed disposable SearXNG and Ollama tests reporting false failures after their
+  assertions passed when root-owned container files prevented temporary cleanup.
 - Fixed Claude full-record chunk merging by establishing the edition match once,
   then passing that selected identity into later field-only chunks instead of
   asking Claude to regenerate and exactly repeat the match summary.

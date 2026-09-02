@@ -19,6 +19,9 @@ debug() {
 
 cleanup() {
   debug "Stopping and removing container: $CONTAINER"
+  if [[ "$MODE" == "ollama" ]]; then
+    docker exec "$CONTAINER" sh -c 'chmod -R a+rwX /root/.ollama' >/dev/null 2>&1 || true
+  fi
   docker rm -f "$CONTAINER" >/dev/null 2>&1 || true
   rm -rf "$TEMP_DIR"
   debug "Removed temporary model storage: $TEMP_DIR"
