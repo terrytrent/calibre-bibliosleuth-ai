@@ -77,6 +77,7 @@ jobs:
             --no-progress --max-retries 2 --timeout 20
             --accept 200,206,429
             --exclude https://platform.openai.com/api-keys
+            --exclude https://github.com/terrytrent/calibre-bibliosleuth-ai/compare/
             README.md CHANGELOG.md CONTRIBUTING.md SECURITY.md
             docs/**/*.md docs/**/*.html
           fail: true

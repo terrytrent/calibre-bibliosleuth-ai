@@ -19,3 +19,8 @@ The previous accepted prompt remains active until the replacement passes and is 
 A custom prompt can change research priorities, source guidance, tone, and reconciliation rules. It cannot remove required fields, citations, confidence, or inference labels; enable arbitrary tools; expand EPUB disclosure; or bypass local validation. Specific-field research further restricts the runtime response without modifying the saved prompt.
 
 Prompt review, synthetic testing, and repair are billable API operations.
+OpenAI and local providers normally use one review call and one synthetic-test
+call. Claude splits the full eight-field synthetic test into two strict calls, so
+a successful Claude validation normally uses three model requests total. Repair
+and failed-test paths can require additional calls; the confirmation warning is
+therefore intentionally provider-neutral rather than quoting a fixed request count.

@@ -13,4 +13,8 @@ Available actions include:
 
 Authors are stored as separate calibre authors and displayed with `&` between names. Series and series index are independently visible. Descriptions may contain safe formatting such as paragraphs, bold text, and italics, but edition-verification notes are excluded from the description.
 
-When approved, changes are written atomically per book through calibre's database API. Title sort and author sort are refreshed automatically. The EPUB is never rewritten. Use calibre's undo facilities when available if you apply something unintentionally.
+When approved, changes are written atomically per book through calibre's database
+API. Title sort and author sort are refreshed automatically. The EPUB is never
+rewritten. BiblioSleuth AI keeps up to ten in-memory session undo checkpoints;
+choose **Undo Last BiblioSleuth AI Apply** from the toolbar menu to restore the
+latest checkpoint. Undo data disappears when calibre exits.

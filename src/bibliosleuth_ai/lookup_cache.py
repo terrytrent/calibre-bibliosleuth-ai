@@ -29,7 +29,14 @@ def epub_file_signature(path):
 def research_cache_key(fingerprint, settings):
     material = {
         "epub": fingerprint,
+        "provider": settings.get("provider", "openai"),
         "model": settings["model"],
+        "endpoint": str(settings.get("endpoint") or "").strip().rstrip("/") or None,
+        "allow_remote_endpoints": bool(settings.get("allow_remote_endpoints", False)),
+        "search_mode": settings.get("search_mode", "hosted"),
+        "searxng_url": settings.get("searxng_url") if settings.get("search_mode") == "searxng" else None,
+        "searxng_results": settings.get("searxng_results"),
+        "max_searches": settings.get("max_searches"),
         "search": settings["search"],
         "front": settings["front"],
         "reasoning": settings["reasoning"],

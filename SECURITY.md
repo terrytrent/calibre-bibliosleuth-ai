@@ -20,17 +20,37 @@ project, so no fixed response-time guarantee is made.
 
 ## Security boundaries
 
+### AI providers and SearXNG
+
+- OpenAI, Anthropic, Ollama, and LM Studio credentials use distinct
+  credential-vault identities and are never reused for another provider. Ollama
+  normally needs no token, but authenticated installations remain isolated too.
+- Anthropic identity-linked and multi-workspace keys may require a `wrkspc_…`
+  selector. It is validated before use, stored separately as non-secret
+  configuration, sent only to Anthropic, and omitted from diagnostic exports.
+- Plain HTTP model and SearXNG endpoints are accepted only on loopback by default;
+  remote services require HTTPS. Redirects and credential-bearing endpoint URLs
+  are rejected.
+- SearXNG is operated separately by the user. Search titles, snippets, and URLs
+  are bounded, sanitized, treated as untrusted evidence, and excluded from logs,
+  statistics, and diagnostic bundles.
+- Selecting SearXNG discloses queries to that instance and its configured upstream
+  engines. Local model inference does not make web search offline.
+- BiblioSleuth AI does not install, launch, administer, or expose SearXNG and does
+  not run an MCP or other network server inside Calibre.
+
 BiblioSleuth AI sends selected OPF fields and bounded text only from confidently
-identified title and copyright pages to the OpenAI Responses API over HTTPS.
-Unidentified pages, front matter of other kinds, and body chapters are excluded,
-uses only hosted web search, validates structured output locally, and requires
-explicit user confirmation before writing Calibre metadata. Users may choose
-field-level review or a separately warned bulk-accept workflow. It does not
-modify EPUB files. Operating-system credential vaults are used for persistent API keys;
-Calibre JSON preferences never contain the key.
-Direct API redirects are refused so bearer credentials cannot follow a redirect
-outside the fixed OpenAI API origin. Hosted web search remains server-side and
-is unaffected by this restriction.
+identified title and copyright pages to the selected AI provider. Unidentified
+pages, other front matter, and body chapters are excluded. Web evidence comes
+from OpenAI or Claude hosted search, or from the configured SearXNG instance.
+Every provider response is validated locally, and explicit confirmation is
+required before writing Calibre metadata. Users may choose field-level review or
+a separately warned bulk-accept workflow. The plugin never modifies EPUB files.
+
+Operating-system credential vaults are used for persistent API keys; Calibre JSON
+preferences never contain them. Direct API redirects are refused so credentials
+cannot follow a redirect away from the selected fixed hosted origin or configured
+local endpoint. Hosted search remains server-side and is unaffected by this rule.
 Session lookup cache and undo checkpoints remain process-local and disappear
 when Calibre exits. Diagnostic exports omit secrets, EPUB passages, full prompts,
 responses, evidence URLs, and library metadata.
@@ -39,9 +59,9 @@ Optional performance history is stored locally with restrictive file permissions
 and bounded by configured record/day limits. Book identity is a salted truncated
 HMAC of the EPUB fingerprint. Records exclude bibliographic metadata, paths,
 library identifiers, book text, prompts, responses, URLs, secrets, and exact errors.
-Model selection is constrained to a validated dropdown of bundled defaults and
-relevant account-visible choices; model
-identifiers are sanitized again before entering diagnostics or statistics.
+Model selection is constrained to a validated dropdown of provider defaults and
+provider-visible choices. Model identifiers are sanitized again before entering
+diagnostics or statistics.
 EPUB XML is parsed with a pinned, hash-verified bundled copy of `defusedxml` in
 addition to archive/member limits and explicit declaration checks.
 

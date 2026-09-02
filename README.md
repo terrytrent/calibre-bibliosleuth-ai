@@ -19,14 +19,14 @@
 [![Platforms](https://img.shields.io/badge/platforms-Windows%20%7C%20macOS%20%7C%20Linux-lightgrey.svg)](#install)
 
 - **Author:** Terry Trent
-- **Version:** 1.0.0
+- **Version:** 1.1.0
 - **License:** MIT
 - **Platforms:** Windows, macOS, and Linux
 - **Minimum Calibre version:** 7.0.0
 - **Bundled dependency:** `defusedxml` 0.7.1 (Python Software Foundation License)
 
 BiblioSleuth AI is a Calibre interface-action plugin that extracts selected EPUB
-metadata and confidently identified title/copyright pages, researches the exact edition with OpenAI web search,
+metadata and confidently identified title/copyright pages, researches the exact edition with a selected AI and web-search provider,
 and lets you approve individual metadata fields before updating the library.
 
 Research runs as a native Calibre background job. Its progress and log appear in
@@ -43,7 +43,7 @@ undo, cache provenance, model capability testing, redacted diagnostics, and
 actionable failure recovery.
 
 BiblioSleuth AI is an independent community plugin. It is not affiliated with or
-endorsed by Calibre or OpenAI.
+endorsed by Calibre, OpenAI, Anthropic, Ollama, LM Studio, or SearXNG.
 
 ## Demo
 
@@ -124,9 +124,8 @@ confidence labels, and evidence links.
 2. In Calibre, open Preferences → Plugins → Load plugin from file and choose
    `dist/BiblioSleuth-AI.zip`.
 3. Add **BiblioSleuth AI** to the desired toolbar/context menu.
-4. Configure an OpenAI API key in the plugin settings (stored in the operating
-   system credential vault when available) or set
-   `OPENAI_API_KEY` before starting Calibre.
+4. Choose OpenAI, Claude, Ollama, or LM Studio in plugin settings. Configure the
+   selected hosted provider's API key, or start the selected local model server.
 
 Restart Calibre after installing or updating the plugin. To uninstall it, open
 Preferences → Plugins, select BiblioSleuth AI under User interface action plugins,
@@ -136,18 +135,183 @@ you also want to remove its operating-system credential-vault entry.
 Use **Clear Statistics…** as well if you want to delete locally retained
 performance history before removing the plugin.
 
-The default model is the configurable `gpt-5.6-luna`, selected for its
+The default provider remains OpenAI with configurable `gpt-5.6-luna`, selected for its
 low token price while retaining Responses API structured output, web search,
 and reasoning support. Metadata research and custom-prompt
 validation/repair make billable API calls. Only selected OPF metadata and the configured
 amount of identified title/copyright-page text are sent; unidentified pages, chapters, and complete books are never uploaded.
 
-Model selection uses a non-editable list containing bundled defaults plus relevant
-models visible to the configured OpenAI account. A successful account list is cached for seven days; settings
+Model selection uses a non-editable list containing provider defaults plus models
+visible to the configured account or local server. A successful provider list is cached for seven days; settings
 refreshes an expired list when possible, and **Refresh Model Choices** performs an
 explicit refresh. Listing models is not a generation or web-search request. Because
 the Models API provides identity rather than tool-capability details, use **Test
 Model Capabilities…** before adopting an unfamiliar model.
+
+Claude choices are limited to model families supporting the strict structured
+output required by BiblioSleuth AI, including compatible Opus, Sonnet, Haiku,
+Fable, and Mythos families. Current supported Claude choices are bundled so a new
+installation is not limited to the prior default; account-visible compatible
+models are added by refresh. Claude defaults to `claude-sonnet-5`. The effort
+control is sent only to Claude models that support it. Incompatible results do
+not make an empty model cache appear fresh.
+If Ollama or LM Studio returns no models, settings gives provider-specific
+instructions for pulling or loading one.
+
+## AI and web-search providers
+
+BiblioSleuth AI supports four inference providers:
+
+- **OpenAI:** Responses API with either OpenAI hosted web search or SearXNG.
+- **Claude:** the direct Anthropic Messages API with either Claude hosted web
+  search or SearXNG. Claude is also used for custom-prompt review, repair,
+  synthetic validation, connection tests, and metadata generation when selected.
+  Hosted research uses one cited search request followed by native strict JSON
+  Schema generation, as Anthropic does not permit citations and structured output
+  in the same request. Full-record generation is split into two bounded strict
+  calls because Anthropic rejects the complete eight-field grammar. The first
+  establishes the edition match; the second receives that selected match and
+  returns only its remaining fields. Field-specific requests containing four or
+  fewer fields remain one strict call.
+  Anthropic receives compact generation grammars containing required keys,
+  shapes, enums, and nullability; BiblioSleuth AI still applies every canonical
+  length, count, pattern, range, and URL constraint locally before presenting a
+  result.
+- **Ollama:** its local OpenAI-compatible API with SearXNG research.
+- **LM Studio:** its local OpenAI-compatible API with SearXNG research.
+
+OpenAI and Claude keys are kept in separate operating-system vault entries and
+can also be supplied as `OPENAI_API_KEY` and `ANTHROPIC_API_KEY`. A protected LM
+Studio server may use `LM_STUDIO_API_KEY`. Ollama normally needs no token, but an
+optional token entered for it receives its own vault identity. A credential is
+never copied from one provider to another. Anthropic identity-linked or
+multi-workspace keys also need the non-secret `wrkspc_…` workspace ID in settings
+or `ANTHROPIC_WORKSPACE_ID`; workspace-scoped keys may leave it blank.
+
+### Local model setup
+
+For Ollama, install Ollama, pull an instruct model that reliably supports strict
+JSON Schema output, and leave its API listening on the loopback default
+`http://127.0.0.1:11434/v1`. For example, use Ollama's documented `ollama pull
+<model>` workflow, then select **Ollama**, refresh models, and run both connection
+and capability tests in BiblioSleuth AI.
+
+For LM Studio, use the full desktop application's **Developer** page rather than
+the Bionic chat surface alone. Download and load a schema-capable,
+**non-thinking** instruct model, then start the local API server. The server root
+is `http://127.0.0.1:1234`, while the BiblioSleuth AI endpoint must include the
+OpenAI-compatible suffix: `http://127.0.0.1:1234/v1`. Keep the server running
+throughout research. If server authentication is enabled, create an LM Studio
+token and store it through BiblioSleuth AI. Avoid LAN exposure unless it is
+deliberate and protected. On a memory-limited Mac, use a context length around
+8192 and one concurrent prediction as a conservative starting point.
+
+Thinking/reasoning variants are not recommended for LM Studio integration. Some
+place the entire schema result in the nonstandard `reasoning_content` field while
+returning an empty standard `content` field; BiblioSleuth AI rejects that as
+invalid structured output. In maintainer testing, `qwen/qwen3-4b-2507` completed
+the integration workflow, while `qwen/qwen3-4b-thinking-2507` exhibited this exact
+failure. Model availability and behavior can change, so run both readiness tests.
+
+Local model quality, context capacity, structured-output reliability, speed, and
+hardware requirements vary considerably. A successful connection test proves
+only reachability; the capability test checks the behavior BiblioSleuth AI needs.
+Exact-edition research is a demanding task: the model must reconcile conflicting
+sources, distinguish closely related editions, follow a large schema, and avoid
+inventing facts or citations. Strong models are therefore necessary for good
+results. Lightweight models are useful for confirming that Ollama or LM Studio is
+configured correctly, but should not be assumed to match OpenAI or Claude.
+Maintainer testing on an M2 Mac with 16 GB of unified memory found that locally
+practical models produced results well below the quality of the supported hosted
+providers. Review local-model proposals especially carefully; hardware able to
+run a server does not guarantee enough capacity for a high-quality research model.
+Local models also commonly need longer request timeouts, particularly on their
+first request after loading. As model size approaches available memory, loading,
+prompt processing, generation, and macOS swapping can push a lookup well beyond
+60 seconds. Start with 120 seconds for smaller models and consider 180–300 seconds
+for larger models, while treating sustained memory pressure or repeated timeouts
+as evidence that the model is too large for comfortable use.
+The first-run wizard sends local-provider users to the full settings screen so a
+model, endpoint, SearXNG service, and both readiness tests are not accidentally
+skipped.
+
+Changing the AI provider or model requires a custom prompt to be validated again.
+This reruns the disclosed synthetic structured-output test against the exact
+runtime selected by the user.
+
+### No-per-query-cost SearXNG research
+
+[SearXNG](https://docs.searxng.org/) is a separate, user-managed metasearch
+service. BiblioSleuth AI does not bundle, install, start, or update it. Install it
+using the official Docker/Podman Compose guidance, keep it on a trusted loopback
+or HTTPS endpoint, and enable JSON results in `settings.yml`:
+
+```yaml
+search:
+  formats:
+    - html
+    - json
+```
+
+Verify it independently:
+
+```sh
+curl 'http://127.0.0.1:8080/search?q=ISBN+9780143127741&format=json'
+```
+
+Then choose **SearXNG** under Web research, enter the server address, and select
+**Test SearXNG**. BiblioSleuth AI constructs bounded edition-oriented searches,
+calls the SearXNG JSON API, removes unsafe result URLs, limits snippets and result
+counts, marks all returned content as untrusted evidence, and supplies it to the
+selected AI. No MCP package is required.
+
+A successfully parsed SearXNG JSON response is considered ready even when that
+particular test query returns no matches. Cancelling a job stops additional
+SearXNG queries and prevents a model request from starting when possible; an
+already-running network request may still take until its response or timeout.
+If a provider response finishes just after cancellation, its usage and timing
+remain in Statistics even though its metadata result is discarded. Books that
+never started remain explicit zero-cost cancellations. A job with no reviewable
+results shows its own non-modal completion notice and is not left invisibly in
+the pending-results queue.
+
+Claude hosted search uses a bounded intermediate handoff containing sanitized
+research text and citation metadata. Opaque provider search state is not copied
+into the strict structured-output request.
+
+SearXNG has no per-query API fee, but it still sends queries to its configured
+public search engines. Those engines can throttle traffic, present CAPTCHAs, or
+change behavior. Running the service also uses the user's own compute, network,
+and maintenance time.
+
+### Choosing a search path
+
+OpenAI and Claude users can choose their provider's hosted search for the simplest
+setup or SearXNG for application-managed search without a hosted-search fee.
+Ollama and LM Studio require SearXNG. Hosted provider search and model inference
+may be billable; SearXNG results still contribute to model input-token usage.
+
+Maintainer testing currently ranks the complete research paths as follows for
+result quality (best to worst):
+
+1. **OpenAI with OpenAI hosted search** — best overall results; second-lowest API
+   cost among the four hosted-model paths tested.
+2. **OpenAI with SearXNG** — lowest tested API cost and results nearly as good as
+   OpenAI hosted search.
+3. **Claude with Claude hosted search** — results on par with OpenAI in testing,
+   but the highest API cost of the four hosted-model paths.
+4. **Claude with SearXNG** — results on par with OpenAI plus SearXNG and the
+   third-lowest tested API cost.
+5. **LM Studio with SearXNG** — quality depends heavily on the local model;
+   `qwen/qwen3-4b-2507` produced acceptable results on the maintainer's M2 Mac.
+6. **Ollama with SearXNG** — also model-dependent; the tested LM Studio Qwen 3
+   4B path outperformed Ollama with `gemma3:4b` and `qwen3:8b`.
+
+This is a practical, small-sample observation rather than a permanent benchmark.
+Books, model revisions, search results, prompts, and hardware can change the
+ordering. The API-cost ranks compare only the four OpenAI/Claude paths: local
+providers have no per-request model API fee but use local hardware, power, and
+maintenance time.
 
 The default Balanced optimization preset uses up to 6,000 characters of identified
 title/copyright-page evidence, low web-search context, low reasoning, a 2,000-token output cap, and
@@ -157,6 +321,15 @@ Jobs report input, cached-input, output, reasoning, total-token, and web-search
 usage per lookup and per batch, together with a clearly dated approximate USD
 cost for recognized models. Stable prompt-cache routing and configurable evidence limits reduce
 repeated input and output overhead.
+
+For the bundled defaults, OpenAI is substantially less expensive than Claude.
+Maintainer testing of full Balanced hosted-search lookups observed roughly
+**$0.07 per book with GPT-5.6 Luna** versus **nearly $0.13 with Claude Sonnet 5**.
+This is a planning comparison, not a guaranteed price: books, searches, output,
+provider pricing, and account terms vary, and the two defaults do not provide
+identical capability. Sonnet 5 also uses a separate search phase and two strict
+generation calls for a full record, while OpenAI normally completes the workflow
+in one Responses API request.
 
 The plugin includes its own book-search icon for Calibre toolbars and menus.
 Comprehensive documentation is bundled into the plugin and available from the
@@ -168,7 +341,7 @@ clearing, session undo, statistics, redacted diagnostics, and diagnostic-log col
 Choose **Research Specific Fields…** from that arrow menu when only part of a
 book's metadata needs attention. A checklist offers Title, Authors, Series,
 Tags, Identifiers, Published Date, Publisher, and Description. Only the checked
-fields are requested from OpenAI and shown in review. **Series and series index**
+fields are requested from the selected AI and shown in review. **Series and series index**
 is one coupled choice: selecting it always asks for both the series name and the
 book's number in that series. The normal main-icon action continues to research
 all supported fields.
@@ -227,7 +400,7 @@ BiblioSleuth AI records privacy-safe performance statistics locally by default. 
 - researched/successful/failed/cancelled/applied/skipped/discarded counts;
 - live requests, cache hits, total time, average, median, fastest, slowest, P90,
   P95, and books per minute;
-- average queue, fingerprint, cache, extraction, OpenAI, validation, review-wait,
+- average queue, fingerprint, cache, extraction, AI-provider, search, validation, review-wait,
   and metadata normalization/application time;
 - token/search totals, cost totals and averages, cost/tokens per success, and
   estimated savings from repeated session-cache hits;
@@ -266,20 +439,25 @@ credential-vault data, or unredacted URLs. Review a bundle before sharing it.
 
 ## Security and privacy
 
-- The API key is never stored in Calibre's JSON preferences. BiblioSleuth AI uses
+- Provider API keys are never stored in Calibre's JSON preferences. BiblioSleuth AI uses
   macOS Keychain, Windows Credential Manager, or Linux Secret Service when
-  available; otherwise the key is session-only. `OPENAI_API_KEY` takes priority.
+  available; otherwise a key is session-only. `OPENAI_API_KEY`,
+  `ANTHROPIC_API_KEY`, or `LM_STUDIO_API_KEY` takes priority for its provider.
+  `ANTHROPIC_WORKSPACE_ID` supplies the non-secret workspace selector required
+  by identity-linked or multi-workspace Anthropic keys.
 - The settings screen displays **✓ API key is stored securely and active** when
   a credential exists, while never revealing its value. The field is labeled
   **Replace API key**: leaving it blank retains the existing credential,
   entering a new key replaces it, and you can use
   **Delete Stored API Key** to remove the vault and session copies.
-- Requests use HTTPS and `store=false`. Only selected OPF metadata and bounded
+- Hosted requests use fixed HTTPS origins; OpenAI requests also set `store=false`.
+  Only selected OPF metadata and bounded
   text from confidently identified title and copyright pages are sent. Unidentified
   pages, contents, prefaces, introductions, dedications, and body chapters are
   excluded rather than used as fallback evidence.
-- API redirects are refused so authorization headers cannot leave the fixed
-  OpenAI API origin. This does not limit hosted web search or consume an evidence-URL slot.
+- API redirects are refused so authorization headers cannot leave the selected
+  hosted origin or configured endpoint. This does not limit hosted web search or
+  consume an evidence-URL slot.
 - EPUB archive reads, API responses, metadata values, URLs, and generated HTML
   are locally bounded and validated. Comments allow only paragraphs, line
   breaks, bold, italics, and lists.
@@ -404,8 +582,8 @@ and embedded version matches. Then push an annotated semantic version tag:
 ```sh
 git switch main
 git pull --ff-only
-git tag -a v1.0.0 -m "BiblioSleuth AI 1.0.0"
-git push origin v1.0.0
+git tag -a v1.1.0 -m "BiblioSleuth AI 1.1.0"
+git push bibliosleuth v1.1.0
 ```
 
 The workflow refuses non-`vMAJOR.MINOR.PATCH` tags, tags whose commit is not on
@@ -431,8 +609,9 @@ in [docs/development.md](docs/development.md).
 
 ## Support and limitations
 
-An OpenAI Platform account with API billing is required. Searches, model calls,
-and custom-prompt validation can incur charges. AI output and online catalogs
+A configured OpenAI or Claude account, or a running Ollama/LM Studio server with
+SearXNG, is required. Hosted searches, model calls, and custom-prompt validation
+can incur charges. AI output and online catalogs
 can be wrong; review every field, especially identifiers, dates, publisher, and
 series index. BiblioSleuth AI supports EPUB inspection only and does not retrieve
 covers or rewrite embedded metadata.

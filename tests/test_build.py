@@ -24,6 +24,7 @@ def test_build_is_deterministic_and_checksummed():
                 searchable += "\n" + archive.read(name).decode("utf-8").casefold()
     assert {
         "__init__.py", "action.py", "images/icon.png", "docs/user-guide.html",
+        "providers.py", "anthropic_provider.py", "local_provider.py", "searxng.py",
         "defusedxml/ElementTree.py", "third-party-licenses/defusedxml-LICENSE.txt",
     } <= names
     assert not any(name.startswith(("src/", "assets/", "scripts/", "tests/")) for name in names)

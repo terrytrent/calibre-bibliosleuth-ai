@@ -38,12 +38,11 @@ class ApiKeySetupDialog(QDialog):
         self.setWindowTitle("Set up BiblioSleuth AI")
         self.resize(560, 230)
         layout = QVBoxLayout(self)
-        title = QLabel("<h2>OpenAI API key required</h2>")
+        title = QLabel("<h2>AI provider credentials required</h2>")
         message = QLabel(
-            "BiblioSleuth AI needs an OpenAI API key to research book metadata. "
+            "BiblioSleuth AI needs credentials for the selected hosted AI provider. "
             "You can enter one in the plugin settings now. The key is masked in the interface, "
-            "and an <code>OPENAI_API_KEY</code> environment variable takes precedence.<br><br>"
-            '<a href="https://platform.openai.com/api-keys">Create or manage an OpenAI API key</a>'
+            "and the provider's environment variable takes precedence. OpenAI and Claude keys are supported; local providers normally need no token."
         )
         message.setWordWrap(True); message.setOpenExternalLinks(True)
         layout.addWidget(title); layout.addWidget(message)

@@ -4,7 +4,7 @@ BiblioSleuth AI sends only metadata useful for edition matching: selected OPF va
 
 Security controls include:
 
-- HTTPS requests to the fixed OpenAI API origin with redirects refused
+- Fixed hosted-provider HTTPS origins, loopback-safe local endpoints, and redirects refused
 - A fixed tool allowlist and schema-constrained output
 - Local schema validation and normalization
 - Prompt-injection separation for EPUB and web content
@@ -14,11 +14,20 @@ Security controls include:
 - Restricted diagnostic logging and secret redaction
 - Evidence checks before metadata can be recommended
 
-Refused HTTP redirects are transport failures; they do not consume one of the configured evidence-URL slots. Hosted web search remains performed by OpenAI.
+Refused HTTP redirects are transport failures; they do not consume one of the
+configured evidence-URL slots. Hosted search remains inside OpenAI or Anthropic;
+SearXNG requests remain limited to the configured endpoint.
 
 ## API-key storage
 
-The friendliest option is the operating-system credential vault. The key is never displayed after storage. You may replace it by typing a new key, explicitly delete it, use `OPENAI_API_KEY`, or choose session-only storage.
+The friendliest option is the operating-system credential vault. OpenAI,
+Anthropic, and optional LM Studio credentials use separate entries and are never
+copied between providers. Keys are never displayed after storage. Environment
+variables and session-only storage are also supported.
+
+When SearXNG is selected, bounded bibliographic queries go to that service and
+its configured upstream engines. Results are untrusted evidence and are not
+retained in metrics or diagnostics.
 
 ## Reporting vulnerabilities
 

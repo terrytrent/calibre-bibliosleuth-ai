@@ -10,13 +10,21 @@ def diagnostic_report(preferences, plugin_version, cache_entries=0, statistics_e
     prompt = (preferences["system_prompt_override"] or "").strip()
     prompt_hash = hashlib.sha256(prompt.encode("utf-8")).hexdigest()[:12] if prompt else "bundled"
     validation = preferences["prompt_validation"] or {}
+    provider = preferences.get("provider", "openai")
+    search_provider = (
+        "searxng" if provider in ("ollama", "lmstudio")
+        else preferences.get("search_mode", "hosted")
+    )
+    active_model = (preferences.get("provider_models") or {}).get(provider) or preferences["model"]
     lines = [
         "BiblioSleuth AI redacted diagnostics",
         "Plugin version: %s" % plugin_version,
         "Python: %s" % platform.python_version(),
         "OS: %s %s" % (platform.system(), platform.release()),
         "Architecture: %s" % platform.machine(),
-        "Model: %s" % safe_model_id(preferences["model"]),
+        "AI provider: %s" % provider,
+        "Search provider: %s" % search_provider,
+        "Model: %s" % safe_model_id(active_model),
         "Optimization preset: %s" % preferences["optimization_preset"],
         "Timeout: %s seconds" % preferences["timeout"],
         "Prompt: %s (hash %s)" % ("custom" if prompt else "bundled", prompt_hash),

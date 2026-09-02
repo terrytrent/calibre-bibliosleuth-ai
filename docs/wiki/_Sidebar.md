@@ -4,6 +4,7 @@
 - [Installation and updates](Installation-and-Updates.md)
 - [Quick start](Quick-Start.md)
 - [Configuration](Configuration.md)
+- [Provider and search setup](Provider-and-Search-Setup.md)
 - [Researching metadata](Researching-Metadata.md)
 - [Reviewing results](Reviewing-Results.md)
 - [Optimization and cost](Optimization-and-Cost.md)

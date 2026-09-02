@@ -24,12 +24,17 @@ from .diagnostic_bundle_dialog import DiagnosticBundleDialog
 from .onboarding import SetupWizard
 from .normalizer import normalize_identifiers, normalize_tags, sanitize_comments
 from .lookup_cache import SESSION_LOOKUP_CACHE, epub_file_signature, epub_fingerprint, research_cache_key
-from .openai_provider import OpenAIProvider
-from .prefs import api_key, diagnostic_journal, effective_optimization_settings, effective_prompt, metrics_store, prefs, prompt_needs_revalidation
+from .providers import (
+    create_provider, PROVIDER_LABELS, provider_spec,
+    resolve_anthropic_workspace_id,
+)
+from .provider_base import ProviderCancelled
+from .prefs import api_key, diagnostic_journal, effective_optimization_settings, effective_prompt, metrics_store, prefs, prompt_needs_revalidation, provider_requires_key
 from .review import ReviewDialog
 from .statistics_dialog import StatisticsDialog
-from .metrics import summarize
+from .metrics import build_lookup_record, summarize
 from .usage import estimate_cost_usd, format_usage
+from .searxng import SearXNGError
 from .constants import FIELD_NAMES
 
 
@@ -94,14 +99,14 @@ class PendingResultsNotification(QDialog):
 
 class CompletionDialog(QDialog):
     """Resizable completion summary that cannot be clipped by Calibre's info dialog."""
-    def __init__(self, message, parent=None):
+    def __init__(self, message, parent=None, window_title="BiblioSleuth AI operation complete"):
         super().__init__(parent)
         self.message = message
-        self.setWindowTitle("BiblioSleuth AI results")
+        self.setWindowTitle(window_title)
         self.resize(760, 320)
         self.setMinimumSize(560, 260)
         layout = QVBoxLayout(self)
-        title = QLabel("Metadata review complete")
+        title = QLabel("BiblioSleuth AI operation complete")
         title_font = title.font(); title_font.setBold(True); title_font.setPointSize(title_font.pointSize() + 2); title.setFont(title_font)
         layout.addWidget(title)
         self.summary = QPlainTextEdit(); self.summary.setReadOnly(True); self.summary.setPlainText(message)
@@ -122,7 +127,7 @@ class SpecificFieldsDialog(QDialog):
     def __init__(self, parent=None):
         super().__init__(parent); self.setWindowTitle("Research specific metadata fields"); self.setMinimumWidth(520)
         layout = QVBoxLayout(self)
-        intro = QLabel("Choose the metadata to research. Only selected fields will be requested from OpenAI and shown for review. Series always includes the book's series index.")
+        intro = QLabel("Choose the metadata to research. Only selected fields will be requested from the configured AI provider and shown for review. Series always includes the book's series index.")
         intro.setWordWrap(True); layout.addWidget(intro); self.checkboxes = {}
         for name in FIELD_NAMES:
             checkbox = QCheckBox(self.LABELS[name]); checkbox.setAccessibleName("Research " + self.LABELS[name])
@@ -150,29 +155,32 @@ class SpecificFieldsDialog(QDialog):
 def research_books(jobs, settings, log=None, abort=None, notifications=None):
     """Run metadata research as a native Calibre background job."""
     results = []
+    cancelled_details = []
     total = len(jobs)
-    api_secret = settings.pop("api_key")
+    settings = dict(settings)
+    api_secret = settings.pop("api_key", "")
+    settings["cancellation_callback"] = abort.is_set if abort is not None else None
     worker_started = time.perf_counter()
-    provider = OpenAIProvider(
-        api_secret, settings["model"], settings["timeout"], settings["search"],
-        reasoning_effort=settings["reasoning"], max_output_tokens=settings["output_cap"],
-        evidence_url_limit=settings["evidence_urls"],
-    )
-    usage = {key: 0 for key in ("input_tokens", "cached_tokens", "output_tokens", "reasoning_tokens", "total_tokens", "web_search_calls")}
+    provider = create_provider(dict(settings, api_key=api_secret))
+    usage_keys = ("input_tokens", "cached_tokens", "output_tokens", "reasoning_tokens", "total_tokens",
+                  "web_search_calls", "hosted_web_search_calls", "searxng_search_calls")
+    usage = {key: 0 for key in usage_keys}
     usage["estimated_cost_usd"] = 0.0
-    cost_available = True
+    unknown_cost_operations = 0
     api_secret = None
 
     def capture_usage():
-        nonlocal cost_available
+        nonlocal unknown_cost_operations
         detail = dict(provider.last_usage)
         if not detail:
             return {}
-        detail["estimated_cost_usd"] = estimate_cost_usd(settings["model"], detail)
-        for key in ("input_tokens", "cached_tokens", "output_tokens", "reasoning_tokens", "total_tokens", "web_search_calls"):
+        detail["provider"] = settings.get("provider", "openai")
+        detail["estimated_cost_usd"] = estimate_cost_usd(settings["model"], detail, provider=settings.get("provider", "openai"))
+        for key in usage_keys:
             usage[key] += detail.get(key, 0)
         if detail["estimated_cost_usd"] is None:
-            cost_available = False
+            unknown_cost_operations += 1
+            detail["_unknown_cost_operation"] = True
         else:
             usage["estimated_cost_usd"] += detail["estimated_cost_usd"]
         return detail
@@ -184,6 +192,8 @@ def research_books(jobs, settings, log=None, abort=None, notifications=None):
                 break
             book_start = float(position) / total
             book_span = 1.0 / total
+            book["_research_provider"] = settings.get("provider", "openai")
+            book["_research_model"] = settings.get("model", "unknown")
             if notifications is not None:
                 # Calibre treats exactly 0% as unavailable. Start just above zero,
                 # then report the locally observable stages around the opaque API call.
@@ -193,7 +203,7 @@ def research_books(jobs, settings, log=None, abort=None, notifications=None):
             timing = {
                 "queue_wait_seconds": max(0.0, worker_started - float(settings.get("submitted_monotonic") or worker_started)),
                 "fingerprint_seconds": 0.0, "cache_lookup_seconds": 0.0, "epub_extraction_seconds": 0.0,
-                "openai_seconds": 0.0, "validation_seconds": 0.0,
+                "provider_seconds": 0.0, "validation_seconds": 0.0,
             }
             book_started = time.perf_counter(); phase = "fingerprint"
             try:
@@ -228,26 +238,81 @@ def research_books(jobs, settings, log=None, abort=None, notifications=None):
                     timing["epub_extraction_seconds"] = time.perf_counter() - started
                     if notifications is not None:
                         notifications.put((book_start + book_span * 0.15, "EPUB read; starting web research: %s" % book["title"]))
-                    phase = "openai"; started = time.perf_counter()
+                    phase = "provider"; started = time.perf_counter()
                     result = provider.research(evidence, settings["prompt"], settings.get("requested_fields"))
                     api_elapsed = time.perf_counter() - started
-                    timing.update(provider.last_timings or {"openai_seconds": api_elapsed, "validation_seconds": 0.0})
+                    timing.update(provider.last_timings or {"provider_seconds": api_elapsed, "validation_seconds": 0.0})
                     detail = capture_usage()
+                    detail.pop("_unknown_cost_operation", None)
                     result["_lookup_info"] = {"researched_at": datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M UTC"),
                                               "model": settings["model"], "original_cost_usd": detail.get("estimated_cost_usd")}
                     timing["retrieval_seconds"] = time.perf_counter() - book_started; detail["_timing"] = timing
                     SESSION_LOOKUP_CACHE.put(cache_key, result)
                     results.append((book, result, None, detail))
                     if log is not None:
-                        log("Lookup usage for book %d: %s" % (position + 1, format_usage(settings["model"], detail)))
+                        log("Lookup usage for book %d: %s" % (
+                            position + 1,
+                            format_usage(settings["model"], detail,
+                                         provider=settings.get("provider", "openai")),
+                        ))
             except Exception as exc:
                 detail = capture_usage()
-                if phase == "openai": timing["openai_seconds"] = time.perf_counter() - started
+                if isinstance(exc, ProviderCancelled):
+                    calls = int(getattr(exc, "completed_calls", 0) or 0)
+                    recorded_calls = int(detail.get("searxng_search_calls") or 0)
+                    additional_calls = max(0, calls - recorded_calls)
+                    usage["web_search_calls"] += additional_calls
+                    usage["searxng_search_calls"] += additional_calls
+                    if calls:
+                        detail["web_search_calls"] = max(
+                            int(detail.get("web_search_calls") or 0), calls
+                        )
+                        detail["searxng_search_calls"] = max(recorded_calls, calls)
+                        detail.setdefault("hosted_web_search_calls", 0)
+                    elapsed = time.perf_counter() - started
+                    if getattr(exc, "elapsed_seconds", None) is not None:
+                        timing["search_seconds"] = float(exc.elapsed_seconds)
+                    elif phase == "provider":
+                        timing["provider_seconds"] = elapsed
+                    # Unknown provider implementations fail safe: without an explicit
+                    # signal, do not claim that a potentially billable request cost $0.
+                    if not getattr(provider, "last_request_started", True):
+                        if detail.pop("_unknown_cost_operation", False):
+                            unknown_cost_operations = max(0, unknown_cost_operations - 1)
+                        detail["estimated_cost_usd"] = 0.0
+                    timing["retrieval_seconds"] = time.perf_counter() - book_started
+                    detail["_timing"] = timing
+                    cancelled_details.append((book, detail))
+                    if log is not None:
+                        log("BiblioSleuth AI research cancelled")
+                    break
+                detail.pop("_unknown_cost_operation", None)
+                if phase == "provider":
+                    elapsed = time.perf_counter() - started
+                    if isinstance(exc, SearXNGError):
+                        calls = int(getattr(exc, "completed_calls", 0) or 0)
+                        timing["search_seconds"] = float(
+                            getattr(exc, "elapsed_seconds", elapsed) or elapsed
+                        )
+                        detail.update({
+                            "provider": settings.get("provider", "openai"),
+                            "web_search_calls": calls,
+                            "hosted_web_search_calls": 0,
+                            "searxng_search_calls": calls,
+                            "estimated_cost_usd": 0.0,
+                        })
+                        usage["web_search_calls"] += calls
+                        usage["searxng_search_calls"] += calls
+                    else:
+                        timing["provider_seconds"] = elapsed
                 elif phase == "extraction": timing["epub_extraction_seconds"] = time.perf_counter() - started
                 elif phase == "fingerprint": timing["fingerprint_seconds"] = time.perf_counter() - started
+                if phase != "provider" and "estimated_cost_usd" not in detail:
+                    detail["estimated_cost_usd"] = 0.0
                 timing["retrieval_seconds"] = time.perf_counter() - book_started; detail["_timing"] = timing
                 detail["_diagnostic"] = {
-                    "stage": phase, "message": str(exc), "traceback": traceback.format_exc(),
+                    "stage": "search" if isinstance(exc, SearXNGError) else phase,
+                    "message": str(exc), "traceback": traceback.format_exc(),
                     "epub_structure": epub_structural_diagnostics(book["path"]),
                 }
                 results.append((book, None, str(exc), detail))
@@ -258,15 +323,20 @@ def research_books(jobs, settings, log=None, abort=None, notifications=None):
     finally:
         provider.clear_api_key()
     if log is not None:
-        if not cost_available:
+        if unknown_cost_operations:
             usage["estimated_cost_usd"] = None
-        log("Total usage: " + format_usage(settings["model"], usage))
-    elif not cost_available:
+        log("Total usage: " + format_usage(
+            settings["model"], usage, provider=settings.get("provider", "openai")
+        ))
+    elif unknown_cost_operations:
         usage["estimated_cost_usd"] = None
     usage["job_elapsed_seconds"] = time.perf_counter() - worker_started
     usage["books_completed"] = len(results)
-    return {"results": results, "cancelled": abort is not None and abort.is_set(), "cancelled_count": max(0, total - len(results)), "usage": usage, "model": settings["model"],
-            "metrics_context": {key: settings.get(key) for key in ("preset", "search", "reasoning", "front", "output_cap", "evidence_urls")},
+    usage["provider"] = settings.get("provider", "openai")
+    return {"results": results, "cancelled_details": cancelled_details,
+            "cancelled": abort is not None and abort.is_set(), "cancelled_count": max(0, total - len(results)), "usage": usage, "model": settings["model"],
+            "provider": settings.get("provider", "openai"), "search_mode": settings.get("search_mode", "hosted"),
+            "metrics_context": {key: settings.get(key) for key in ("preset", "search", "reasoning", "front", "output_cap", "evidence_urls", "provider", "search_mode")},
             "batch_size": total}
 
 
@@ -279,6 +349,7 @@ class BiblioSleuthAIAction(InterfaceAction):
         self.qaction.setIcon(self.default_icon)
         self.qaction.triggered.connect(self.activate)
         self.pending_batches = []
+        self.completion_notices = []
         self.pending_notification = PendingResultsNotification(self)
         self.menu = QMenu(self.gui)
         self.configure_action = self.menu.addAction("Configure BiblioSleuth AI")
@@ -409,7 +480,7 @@ class BiblioSleuthAIAction(InterfaceAction):
         models = {payload.get("model", "unknown") for payload in payloads}
         model = next(iter(models)) if len(models) == 1 else "multiple models"
         message = "Blind accept updated %d book(s)." % len(applied_ids)
-        if usage.get("total_tokens"): message += "\n\nOpenAI job usage: " + format_usage(model, usage) + "."
+        if usage.get("total_tokens"): message += "\n\nAI job usage: " + format_usage(model, usage) + "."
         if usage.get("job_elapsed_seconds") is not None:
             message += "\n\nBackground retrieval time: %.2f seconds for %d completed book(s)." % (
                 usage["job_elapsed_seconds"], usage.get("books_completed", len(proposals)))
@@ -418,16 +489,23 @@ class BiblioSleuthAIAction(InterfaceAction):
 
     @staticmethod
     def _combined_usage(payloads):
-        keys = ("input_tokens", "cached_tokens", "output_tokens", "reasoning_tokens", "total_tokens", "web_search_calls", "books_completed")
+        keys = (
+            "input_tokens", "cached_tokens", "output_tokens", "reasoning_tokens",
+            "total_tokens", "web_search_calls", "hosted_web_search_calls",
+            "searxng_search_calls", "books_completed",
+        )
         combined = {key: 0 for key in keys}; combined["estimated_cost_usd"] = 0.0
         cost_known = True
+        providers = set()
         for payload in payloads:
             usage = payload.get("usage") or {}
+            providers.add(payload.get("provider") or usage.get("provider") or "openai")
             for key in keys: combined[key] += usage.get(key, 0) or 0
             cost = usage.get("estimated_cost_usd")
             if cost is None: cost_known = False
             else: combined["estimated_cost_usd"] += cost
         if not cost_known: combined["estimated_cost_usd"] = None
+        combined["provider"] = next(iter(providers)) if len(providers) == 1 else "multiple"
         combined["job_elapsed_seconds"] = sum((payload.get("usage") or {}).get("job_elapsed_seconds", 0) or 0 for payload in payloads)
         return combined
 
@@ -470,7 +548,7 @@ class BiblioSleuthAIAction(InterfaceAction):
             "<p>Created by Terry Trent. Released under the MIT License.</p>"
             "<p>BiblioSleuth AI searches online sources, presents evidence-backed suggestions "
             "for review, and changes only the fields you approve. It does not modify the EPUB file.</p>"
-            "<p>OpenAI API usage may incur charges.</p>" % version,
+            "<p>Hosted AI and web-search usage may incur charges.</p>" % version,
         )
 
     def clear_lookup_cache(self, *args):
@@ -519,9 +597,19 @@ class BiblioSleuthAIAction(InterfaceAction):
         if not prefs.get("onboarding_complete", False):
             if SetupWizard(self.gui).exec() != SetupWizard.DialogCode.Accepted:
                 return
+            if not provider_spec(prefs["provider"]).hosted_search:
+                info_dialog(
+                    self.gui,
+                    "Finish local-provider setup",
+                    "Choose a loaded model, confirm the local endpoint, configure SearXNG, "
+                    "and run the connection and capability tests before researching.",
+                    show=True,
+                )
+                self.interface_action_base_plugin.do_user_config(self.gui)
+                return
         if prompt_needs_revalidation():
             return error_dialog(self.gui, "Prompt validation required", "The custom prompt must be revalidated because the response contract changed.", show=True)
-        if not api_key():
+        if provider_requires_key() and not api_key():
             choice = ApiKeySetupDialog.choose(self.gui)
             if choice == ApiKeySetupDialog.DOCUMENTATION:
                 DocumentationDialog(self.gui).exec()
@@ -529,8 +617,20 @@ class BiblioSleuthAIAction(InterfaceAction):
             if choice != ApiKeySetupDialog.CONFIGURE:
                 return
             self.interface_action_base_plugin.do_user_config(self.gui)
-            if not api_key():
+            if provider_requires_key() and not api_key():
                 return
+        provider_id = prefs["provider"]
+        selected_model = (prefs["provider_models"] or {}).get(provider_id) or prefs["model"]
+        if not selected_model:
+            info_dialog(
+                self.gui,
+                "Choose a model",
+                "Select or load a model in BiblioSleuth AI settings, then run the "
+                "connection and capability tests before researching.",
+                show=True,
+            )
+            self.interface_action_base_plugin.do_user_config(self.gui)
+            return
         rows = self.gui.library_view.selectionModel().selectedRows()
         if not rows:
             return info_dialog(self.gui, "BiblioSleuth AI", "Select one or more books first.", show=True)
@@ -555,9 +655,14 @@ class BiblioSleuthAIAction(InterfaceAction):
             preset = prefs["optimization_preset"].title(); ranges = {"economy":"$0.01–$0.03", "balanced":"$0.01–$0.05", "thorough":"$0.02–$0.10"}
             field_text = ", ".join(SpecificFieldsDialog.LABELS[name] for name in settings["requested_fields"])
             cache_text = "Bypassed (fresh research requested)" if force_refresh else "Checked in the background job"
-            text = ("Ready to research %d EPUB(s).\n\nFields: %s\nPreset: %s\nSession cache: %s\nSelected books without EPUB: %d\n"
-                    "Planning estimate: %s per uncached book (not a quote).\n\nStart the background job?") % (
-                        len(jobs), field_text, preset, cache_text, missing, ranges.get(prefs["optimization_preset"], "varies"))
+            provider_label = PROVIDER_LABELS.get(settings["provider"], settings["provider"])
+            search_label = "SearXNG" if settings["search_mode"] == "searxng" else "%s hosted search" % provider_label
+            if settings["provider"] == "openai": cost_text = ranges.get(prefs["optimization_preset"], "varies") + " per uncached book (not a quote)"
+            elif settings["provider"] == "anthropic": cost_text = "Claude model and hosted-search charges vary; SearXNG has no per-query fee"
+            else: cost_text = "Local inference and SearXNG report no API charge"
+            text = ("Ready to research %d EPUB(s).\n\nAI provider: %s\nWeb research: %s\nFields: %s\nPreset: %s\nSession cache: %s\nSelected books without EPUB: %d\n"
+                    "Planning estimate: %s.\n\nStart the background job?") % (
+                        len(jobs), provider_label, search_label, field_text, preset, cache_text, missing, cost_text)
             if QMessageBox.question(self.gui, "BiblioSleuth AI preflight", text) != QMessageBox.StandardButton.Yes: return
         self._launch_jobs(jobs, settings)
 
@@ -587,7 +692,8 @@ class BiblioSleuthAIAction(InterfaceAction):
     def _job_finished(self, job):
         if job.failed:
             diagnostic_journal.add({
-                "outcome": "failed", "stage": "background_job", "model": prefs["model"],
+                "outcome": "failed", "stage": "background_job", "provider": prefs["provider"],
+                "model": (prefs["provider_models"] or {}).get(prefs["provider"], prefs["model"]),
                 "preset": prefs["optimization_preset"], "batch_size": 0, "failed_books": 1,
                 "failures": [{"category": "background_job", "stage": "background_job",
                               "message": "The Calibre background job failed before returning a sanitized result.", "traceback": ""}],
@@ -600,6 +706,25 @@ class BiblioSleuthAIAction(InterfaceAction):
             return
         payload = job.result or {"results": [], "cancelled": False, "usage": {}, "model": "unknown"}
         self._record_payload_metrics(payload)
+        if not payload.get("results"):
+            cancelled = int(payload.get("cancelled_count") or 0)
+            message = (
+                "Research was cancelled. %d book(s) were not completed, and no metadata results are waiting for review."
+                % cancelled
+            ) if payload.get("cancelled") else "Research finished without any metadata results to review."
+            notice = CompletionDialog(
+                message, self.gui,
+                "BiblioSleuth AI research cancelled" if payload.get("cancelled")
+                else "BiblioSleuth AI research complete",
+            )
+            self.completion_notices.append(notice)
+            notice.finished.connect(
+                lambda *_args, item=notice: self.completion_notices.remove(item)
+                if item in self.completion_notices else None
+            )
+            notice.show()
+            self.gui.status_bar.show_message(message, 10000)
+            return
         self.pending_batches.append(payload); self._update_pending_icon(); self._show_pending_notification()
         self.gui.status_bar.show_message("BiblioSleuth AI research complete — click the notification or toolbar icon to review.", 10000)
 
@@ -611,19 +736,11 @@ class BiblioSleuthAIAction(InterfaceAction):
         context = payload.get("metrics_context") or {}; batch_size = int(payload.get("batch_size") or len(payload.get("results", [])) or 1)
         diagnostic_failures = []; successful = 0
         for job, result, error, detail in payload.get("results", []):
-            timing = dict((detail or {}).get("_timing") or {})
-            record = {
-                "model": payload.get("model", "unknown"), "preset": context.get("preset", "unknown"),
-                "search_context": context.get("search"), "reasoning": context.get("reasoning"),
-                "front_matter_chars": context.get("front"), "output_cap": context.get("output_cap"),
-                "evidence_urls": context.get("evidence_urls"), "cache_hit": bool((detail or {}).get("cache_hit")),
-                "outcome": "failed" if error else ("cancelled" if payload.get("cancelled") and not result else "ready"),
-                "failure_category": self._failure_category(error) if error else "", "batch_size": batch_size,
-            }
-            record.update(timing)
-            for key in ("input_tokens", "cached_tokens", "output_tokens", "reasoning_tokens", "total_tokens", "web_search_calls",
-                        "estimated_cost_usd", "estimated_avoided_cost_usd"):
-                record[key] = (detail or {}).get(key)
+            outcome = "failed" if error else ("cancelled" if payload.get("cancelled") and not result else "ready")
+            record = build_lookup_record(
+                payload, detail, outcome=outcome,
+                failure_category=self._failure_category(error) if error else "",
+            )
             fingerprint = job.get("epub_fingerprint") or secrets.token_hex(32)
             job["_metrics_id"] = metrics_store.add(fingerprint, record)
             job["_metrics_ready_monotonic"] = time.perf_counter()
@@ -638,21 +755,36 @@ class BiblioSleuthAIAction(InterfaceAction):
                     "epub_structure": diagnostic.get("epub_structure") or {},
                 })
             else: successful += 1
-        for _ in range(int(payload.get("cancelled_count") or 0)):
-            metrics_store.add(secrets.token_hex(32), {
-                "model": payload.get("model", "unknown"), "preset": context.get("preset", "unknown"),
-                "search_context": context.get("search"), "reasoning": context.get("reasoning"),
-                "front_matter_chars": context.get("front"), "output_cap": context.get("output_cap"),
-                "evidence_urls": context.get("evidence_urls"), "cache_hit": False, "outcome": "cancelled",
-                "failure_category": "user_cancelled", "batch_size": batch_size,
-            })
+        cancelled_details = list(payload.get("cancelled_details") or [])
+        for job, detail in cancelled_details:
+            record = build_lookup_record(
+                payload, detail, outcome="cancelled",
+                failure_category="user_cancelled", cache_hit=False,
+            )
+            fingerprint = job.get("epub_fingerprint") or secrets.token_hex(32)
+            metrics_store.add(fingerprint, record)
+        unstarted_cancelled = max(
+            0, int(payload.get("cancelled_count") or 0) - len(cancelled_details)
+        )
+        for _ in range(unstarted_cancelled):
+            metrics_store.add(secrets.token_hex(32), build_lookup_record(
+                payload, {"estimated_cost_usd": 0.0}, outcome="cancelled",
+                failure_category="user_cancelled", cache_hit=False,
+            ))
         usage = dict(payload.get("usage") or {})
         diagnostic_journal.add({
             "outcome": "failed" if diagnostic_failures else ("cancelled" if payload.get("cancelled") else "success"),
-            "stage": "research", "model": payload.get("model", "unknown"), "preset": context.get("preset", "unknown"),
+            "stage": "research", "model": payload.get("model", "unknown"),
+            "provider": payload.get("provider", context.get("provider", "openai")),
+            "search_provider": payload.get("search_mode", context.get("search_mode", "hosted")),
+            "preset": context.get("preset", "unknown"),
             "batch_size": batch_size, "successful_books": successful, "failed_books": len(diagnostic_failures),
             "cancelled_books": int(payload.get("cancelled_count") or 0),
-            "usage": {key: usage.get(key) for key in ("input_tokens", "cached_tokens", "output_tokens", "reasoning_tokens", "total_tokens", "web_search_calls", "estimated_cost_usd")},
+            "usage": {key: usage.get(key) for key in (
+                "input_tokens", "cached_tokens", "output_tokens", "reasoning_tokens",
+                "total_tokens", "web_search_calls", "hosted_web_search_calls",
+                "searxng_search_calls", "estimated_cost_usd",
+            )},
             "timing": {"job_elapsed_seconds": usage.get("job_elapsed_seconds")}, "failures": diagnostic_failures,
         })
 
@@ -660,6 +792,7 @@ class BiblioSleuthAIAction(InterfaceAction):
     def _failure_category(error):
         value = str(error or "").lower()
         if "epub" in value or "container.xml" in value or "opf" in value or "zip" in value: return "epub"
+        if "searxng" in value or "web search" in value or "search service" in value: return "web_search"
         if "429" in value or "rate" in value: return "rate_limit"
         if "timeout" in value or "timed out" in value: return "timeout"
         if "401" in value or "403" in value or "api key" in value: return "authentication"
@@ -676,7 +809,11 @@ class BiblioSleuthAIAction(InterfaceAction):
         fingerprint = job.get("epub_fingerprint") or secrets.token_hex(32)
         safe_message = redact_job_context(message, job); safe_trace = redact_job_context(trace, job)
         diagnostic_journal.add({
-            "outcome": "failed", "stage": "metadata_application", "model": prefs["model"],
+            "outcome": "failed", "stage": "metadata_application",
+            "provider": job.get("_research_provider", prefs["provider"]),
+            "model": job.get("_research_model") or (
+                prefs["provider_models"] or {}
+            ).get(prefs["provider"], prefs["model"]),
             "preset": prefs["optimization_preset"], "batch_size": 1, "failed_books": 1,
             "failures": [{
                 "anonymous_book": metrics_store.anonymized_book_id(fingerprint), "category": category,
@@ -774,7 +911,7 @@ class BiblioSleuthAIAction(InterfaceAction):
         self.gui.library_view.model().refresh_ids([j[0]["book_id"] for j in results])
         message = "Updated %d book(s)." % applied
         if usage and usage.get("total_tokens"):
-            message += "\n\nOpenAI job usage: " + format_usage(model, usage) + "."
+            message += "\n\nAI job usage: " + format_usage(model, usage) + "."
         if usage and usage.get("job_elapsed_seconds") is not None:
             message += "\n\nBackground retrieval time: %.2f seconds for %d completed book(s)." % (
                 usage["job_elapsed_seconds"], usage.get("books_completed", len(results)))
@@ -799,8 +936,8 @@ class BiblioSleuthAIAction(InterfaceAction):
     @staticmethod
     def _friendly_error(error):
         value = str(error); lowered = value.lower()
-        if "401" in value or "403" in value or "api key" in lowered: return "OpenAI access was rejected. Check the API key, project permissions, and billing."
-        if "429" in value or "rate" in lowered: return "OpenAI rate or spending limit reached. Wait, check project limits, then retry."
+        if "401" in value or "403" in value or "api key" in lowered: return "The selected provider rejected access. Check its API key or local-server authentication."
+        if "429" in value or "rate" in lowered: return "The selected provider's rate or spending limit was reached. Wait, check its limits, then retry."
         if "timeout" in lowered or "timed out" in lowered: return "The lookup timed out. Retry fresh or increase the timeout in General settings."
         if "model" in lowered: return "The selected model may be unavailable or lack required capabilities. Test it in General settings."
         if "epub" in lowered or "zip" in lowered: return "The EPUB could not be safely read. Verify the file is valid and DRM-free."
@@ -808,7 +945,15 @@ class BiblioSleuthAIAction(InterfaceAction):
 
     def _settings(self, force_refresh=False, requested_fields=None):
         optimization = effective_optimization_settings()
-        return {"api_key": api_key(), "model": prefs["model"], "timeout": prefs["timeout"],
+        provider = prefs["provider"]
+        models = dict(prefs["provider_models"] or {})
+        endpoints = dict(prefs["provider_endpoints"] or {})
+        model = models.get(provider) or prefs["model"]
+        search_mode = prefs["search_mode"] if provider in ("openai", "anthropic") else "searxng"
+        return {"api_key": api_key(provider), "provider": provider, "model": model, "endpoint": endpoints.get(provider, ""),
+                "workspace_id": resolve_anthropic_workspace_id(prefs["anthropic_workspace_id"]),
+                "search_mode": search_mode, "searxng_url": prefs["searxng_url"], "searxng_results": prefs["searxng_results"],
+                "max_searches": prefs["max_searches"], "allow_remote_endpoints": prefs["allow_remote_endpoints"], "timeout": prefs["timeout"],
                 "search": optimization["search_context_size"], "front": optimization["front_matter_chars"],
                 "reasoning": optimization["reasoning_effort"], "output_cap": optimization["max_output_tokens"],
                 "evidence_urls": optimization["evidence_url_limit"], "prompt": effective_prompt(), "preset": prefs["optimization_preset"],
