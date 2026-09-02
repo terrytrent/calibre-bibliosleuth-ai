@@ -18,14 +18,45 @@ from .model_catalog import safe_model_id
 
 TIMING_KEYS = (
     "queue_wait_seconds", "fingerprint_seconds", "cache_lookup_seconds",
-    "epub_extraction_seconds", "openai_seconds", "validation_seconds",
+    "epub_extraction_seconds", "provider_seconds", "search_seconds", "validation_seconds",
     "retrieval_seconds", "review_wait_seconds", "apply_seconds",
 )
 USAGE_KEYS = (
     "input_tokens", "cached_tokens", "output_tokens", "reasoning_tokens",
-    "total_tokens", "web_search_calls", "estimated_cost_usd",
+    "total_tokens", "web_search_calls", "hosted_web_search_calls", "searxng_search_calls", "estimated_cost_usd",
     "estimated_avoided_cost_usd",
 )
+METRIC_CONTEXT_KEYS = (
+    "preset", "search", "reasoning", "front", "output_cap", "evidence_urls",
+)
+
+
+def build_lookup_record(payload, detail=None, *, outcome, failure_category="", cache_hit=None):
+    """Build one normalized, provider-neutral lookup metric record."""
+    detail = detail or {}
+    context = payload.get("metrics_context") or {}
+    record = {
+        "model": payload.get("model", "unknown"),
+        "provider": payload.get("provider", context.get("provider", "openai")),
+        "search_provider": payload.get(
+            "search_mode", context.get("search_mode", "hosted")
+        ),
+        "preset": context.get("preset", "unknown"),
+        "search_context": context.get("search"),
+        "reasoning": context.get("reasoning"),
+        "front_matter_chars": context.get("front"),
+        "output_cap": context.get("output_cap"),
+        "evidence_urls": context.get("evidence_urls"),
+        "cache_hit": bool(detail.get("cache_hit")) if cache_hit is None else bool(cache_hit),
+        "outcome": outcome,
+        "failure_category": failure_category,
+        "batch_size": int(payload.get("batch_size") or len(payload.get("results", [])) or 1),
+    }
+    record.update(detail.get("_timing") or {})
+    for key in USAGE_KEYS:
+        if key in detail:
+            record[key] = detail[key]
+    return record
 
 
 def _utc_now():
@@ -43,16 +74,17 @@ def percentile(values, percentage):
     return values[lower] + (values[upper] - values[lower]) * fraction
 
 
-def filter_records(records, period="all", model="all", preset="all", source="all", outcome="all", session_id=None, now=None):
+def filter_records(records, period="all", model="all", preset="all", source="all", outcome="all", session_id=None, now=None, provider="all"):
     now = float(now or time.time())
     period_name = str(period).lower(); model_all = str(model).lower() == "all"; preset_all = str(preset).lower() == "all"
-    source = str(source).lower(); outcome = str(outcome).lower()
+    source = str(source).lower(); outcome = str(outcome).lower(); provider = str(provider).lower()
     days = {"7 days": 7, "30 days": 30, "90 days": 90}.get(period_name)
     result = []
     for record in records:
         if period_name == "session" and record.get("session_id") != session_id: continue
         if days and float(record.get("timestamp_epoch", 0)) < now - days * 86400: continue
         if not model_all and record.get("model") != model: continue
+        if provider != "all" and str(record.get("provider", "openai")).lower() != provider: continue
         if not preset_all and record.get("preset") != preset: continue
         if source == "live" and record.get("cache_hit"): continue
         if source == "cache" and not record.get("cache_hit"): continue
@@ -73,6 +105,10 @@ def summarize(records):
     for key in USAGE_KEYS:
         values = [r.get(key) for r in records if r.get(key) is not None]
         usage[key] = sum(values) if values else (None if "cost" in key else 0)
+    known_cost_records = sum(r.get("estimated_cost_usd") is not None for r in records)
+    unknown_cost_records = total - known_cost_records
+    if unknown_cost_records:
+        usage["estimated_cost_usd"] = None
     return {
         "records": total,
         "successful": len(successful),
@@ -93,6 +129,8 @@ def summarize(records):
         "books_per_minute": (len(retrievals) * 60 / sum(retrievals)) if retrievals and sum(retrievals) else None,
         "timing": timing,
         "usage": usage,
+        "known_cost_records": known_cost_records,
+        "unknown_cost_records": unknown_cost_records,
         "average_tokens": (usage["total_tokens"] / total) if total else None,
         "average_cost": (usage["estimated_cost_usd"] / total) if total and usage["estimated_cost_usd"] is not None else None,
         "tokens_per_success": (usage["total_tokens"] / len(successful)) if successful else None,
@@ -132,6 +170,9 @@ class MetricsStore:
             data["records"] = [record for record in data["records"] if isinstance(record, dict)]
             for record in data["records"]:
                 record["model"] = safe_model_id(record.get("model"))
+                if record.get("provider_seconds") is None and record.get("openai_seconds") is not None:
+                    record["provider_seconds"] = record["openai_seconds"]
+                record.pop("openai_seconds", None)
             return data
         except (OSError, ValueError, TypeError, AttributeError):
             return {"version": self.VERSION, "salt": secrets.token_hex(32), "records": []}
@@ -148,7 +189,7 @@ class MetricsStore:
         if not self.enabled: return None
         with self._lock:
             item = {key: value for key, value in record.items() if key in set(TIMING_KEYS + USAGE_KEYS) | {
-                "model", "preset", "search_context", "reasoning", "front_matter_chars", "output_cap",
+                "provider", "search_provider", "model", "preset", "search_context", "reasoning", "front_matter_chars", "output_cap",
                 "evidence_urls", "cache_hit", "outcome", "failure_category", "batch_size",
             }}
             item["model"] = safe_model_id(item.get("model"))
@@ -191,7 +232,7 @@ class MetricsStore:
 
     def export_csv(self, path, records=None):
         records = records if records is not None else self.records()
-        fields = ["timestamp", "book", "model", "preset", "cache_hit", "outcome", "failure_category", "batch_size"] + list(TIMING_KEYS) + list(USAGE_KEYS)
+        fields = ["timestamp", "book", "provider", "search_provider", "model", "preset", "cache_hit", "outcome", "failure_category", "batch_size"] + list(TIMING_KEYS) + list(USAGE_KEYS)
         with open(path, "w", newline="", encoding="utf-8") as stream:
             writer = csv.DictWriter(stream, fieldnames=fields, extrasaction="ignore"); writer.writeheader(); writer.writerows(records)
         try: os.chmod(path, 0o600)

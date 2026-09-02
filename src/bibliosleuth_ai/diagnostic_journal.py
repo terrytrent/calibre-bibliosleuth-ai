@@ -40,6 +40,10 @@ class DiagnosticJournal:
             if not isinstance(data, dict) or not isinstance(data.get("entries"), list): raise ValueError("invalid diagnostic journal")
             data["entries"] = [entry for entry in data["entries"] if isinstance(entry, dict)]
             for entry in data["entries"]:
+                entry["provider"] = str(entry.get("provider") or "openai")[:40]
+                entry["search_provider"] = str(
+                    entry.get("search_provider") or "hosted"
+                )[:40]
                 entry["model"] = safe_model_id(entry.get("model"))
             return data
         except (OSError, ValueError, TypeError, AttributeError):
@@ -52,6 +56,8 @@ class DiagnosticJournal:
             "timestamp_epoch": time.time(),
             "outcome": str(summary.get("outcome") or "unknown")[:40],
             "stage": str(summary.get("stage") or "unknown")[:80],
+            "provider": str(summary.get("provider") or "openai")[:40],
+            "search_provider": str(summary.get("search_provider") or "hosted")[:40],
             "model": safe_model_id(summary.get("model")),
             "preset": str(summary.get("preset") or "unknown")[:40],
             "batch_size": max(0, int(summary.get("batch_size") or 0)),

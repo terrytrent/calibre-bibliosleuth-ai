@@ -9,14 +9,20 @@ from qt.core import (
 from .constants import DEFAULT_SYSTEM_PROMPT, PLUGIN_VERSION, PROMPT_VERSION, SCHEMA_VERSION
 from . import credentials
 from .docs import DocumentationDialog
-from .openai_provider import OpenAIProvider, ProviderError
-from .prefs import OPTIMIZATION_PRESETS, api_key, forget_session_api_key, metrics_store, prefs, set_session_api_key
+from .provider_base import ProviderError
+from .providers import (
+    create_provider, PROVIDER_LABELS, provider_spec, sanitize_anthropic_models,
+    sanitize_model_list, resolve_anthropic_workspace_id, model_id_for_discovery,
+)
+from .provider_config import ProviderConfigurationState
+from .prefs import OPTIMIZATION_PRESETS, api_key, forget_session_api_key, metrics_store, prefs, set_session_api_key, provider_requires_key
+from .searxng import SearXNGClient
 from .prompt_validation import PromptValidationError, validate_and_repair_prompt
 from .prompt_validation import validation_matches_prompt
 from .diagnostics import diagnostic_report
 from .lookup_cache import SESSION_LOOKUP_CACHE
 from .model_catalog import cache_is_fresh, cached_models, normalize_models, store_models
-from .usage import format_usage
+from .usage import estimate_cost_usd, format_usage
 from .statistics_dialog import StatisticsDialog
 
 
@@ -56,8 +62,15 @@ class ConfigWidget(QWidget):
     def __init__(self, parent=None):
         super().__init__(parent)
         self._validated = None
-        self._environment_key = bool(os.environ.get("OPENAI_API_KEY", "").strip())
-        self._has_existing_key = bool(api_key())
+        self._provider_keys = {}
+        self._provider_models = dict(prefs["provider_models"] or {})
+        self._provider_endpoints = dict(prefs["provider_endpoints"] or {})
+        initial_provider = prefs["provider"]
+        self._provider_state = ProviderConfigurationState(
+            initial_provider, self._provider_models, self._provider_endpoints, self._provider_keys
+        )
+        self._environment_key = self._environment_key_for(initial_provider)
+        self._has_existing_key = bool(api_key(initial_provider))
         layout = QVBoxLayout(self)
         self.tabs = QTabWidget(); layout.addWidget(self.tabs)
         general = QWidget(); general_layout = QVBoxLayout(general); general_form = QFormLayout()
@@ -75,7 +88,7 @@ class ConfigWidget(QWidget):
         self.api_key = QLineEdit()
         self.api_key.setEchoMode(QLineEdit.EchoMode.Password)
         if self._environment_key:
-            self.api_key.setPlaceholderText("Using OPENAI_API_KEY")
+            self.api_key.setPlaceholderText("Using provider environment variable")
             self.api_key.setEnabled(False)
         elif self._has_existing_key:
             self.api_key.setPlaceholderText("Stored securely — enter a new key to replace it")
@@ -85,10 +98,28 @@ class ConfigWidget(QWidget):
         self.key_status = WrappedValueLabel(self._key_status_text())
         self.remember_key = QCheckBox("Remember securely in the operating system credential vault")
         self.remember_key.setChecked(bool(prefs["remember_api_key"] and credentials.available()))
-        self.remember_key.setEnabled(credentials.available() and not bool(os.environ.get("OPENAI_API_KEY")))
-        self.model = QComboBox()
-        self.model.addItems(cached_models(prefs, prefs["model"]))
-        self.model.setCurrentText(prefs["model"])
+        self.remember_key.setEnabled(credentials.available() and not self._environment_key)
+        self.provider = QComboBox()
+        for provider_id, label in PROVIDER_LABELS.items(): self.provider.addItem(label, provider_id)
+        self.provider.setCurrentIndex(max(0, self.provider.findData(initial_provider)))
+        self._active_provider = initial_provider
+        self.search_mode = QComboBox(); self.search_mode.addItem("Provider-hosted search", "hosted"); self.search_mode.addItem("SearXNG", "searxng")
+        self.search_mode.setCurrentIndex(max(0, self.search_mode.findData(prefs["search_mode"])))
+        self.endpoint = QLineEdit(self._provider_endpoints.get(initial_provider, ""))
+        self.endpoint.setPlaceholderText("Local API endpoint")
+        environment_workspace = resolve_anthropic_workspace_id()
+        self.workspace_id = QLineEdit(resolve_anthropic_workspace_id(
+            prefs["anthropic_workspace_id"]
+        ))
+        self.workspace_id.setPlaceholderText("Optional unless your key requires it (wrkspc_…)")
+        self.workspace_id.setEnabled(not bool(environment_workspace))
+        self.searxng_url = QLineEdit(prefs["searxng_url"]); self.searxng_url.setPlaceholderText("http://127.0.0.1:8080")
+        self.max_searches = QSpinBox(); self.max_searches.setRange(1, 10); self.max_searches.setValue(prefs["max_searches"])
+        self.searxng_results = QSpinBox(); self.searxng_results.setRange(1, 10); self.searxng_results.setValue(prefs["searxng_results"])
+        self.model = QComboBox(); self.model.setEditable(False)
+        initial_model = self._provider_models.get(initial_provider) or prefs["model"]
+        self.model.addItems(cached_models(prefs, initial_model, provider=initial_provider))
+        self.model.setCurrentText(initial_model)
         self.model_status = WrappedValueLabel(
             "Account-visible model choices are cached for seven days. Use the capability test before selecting an unfamiliar model."
         )
@@ -102,6 +133,14 @@ class ConfigWidget(QWidget):
         self.evidence_urls = QSpinBox(); self.evidence_urls.setRange(1, 10); self.evidence_urls.setValue(prefs["evidence_url_limit"])
         self.tags = QSpinBox(); self.tags.setRange(1, 100); self.tags.setValue(prefs["tag_limit"])
         self.description = QSpinBox(); self.description.setRange(500, 30000); self.description.setValue(prefs["description_limit"])
+        general_form.addRow("AI provider", self.provider)
+        general_form.addRow("Web research", self.search_mode)
+        general_form.addRow("Local API endpoint", self.endpoint)
+        self.workspace_id_label = QLabel("Claude workspace ID")
+        general_form.addRow(self.workspace_id_label, self.workspace_id)
+        general_form.addRow("SearXNG server", self.searxng_url)
+        general_form.addRow("Maximum searches per book", self.max_searches)
+        general_form.addRow("Results per search", self.searxng_results)
         general_form.addRow(self.api_key_label, self.api_key)
         general_form.addRow("Status", self.key_status)
         general_form.addRow("", self.remember_key); general_form.addRow("Model", self.model)
@@ -112,7 +151,8 @@ class ConfigWidget(QWidget):
         test = QPushButton("Test Connection"); test.clicked.connect(self.test_connection); general_buttons.addWidget(test, 0, 0)
         capabilities = QPushButton("Test Model Capabilities…"); capabilities.clicked.connect(self.test_capabilities); general_buttons.addWidget(capabilities, 0, 1)
         refresh_models = QPushButton("Refresh Model Choices"); refresh_models.clicked.connect(self.refresh_model_choices); general_buttons.addWidget(refresh_models, 1, 0, 1, 2)
-        self.delete_key_button = QPushButton("Delete Stored API Key"); self.delete_key_button.clicked.connect(self.forget_api_key); general_buttons.addWidget(self.delete_key_button, 2, 0, 1, 2)
+        test_search = QPushButton("Test SearXNG"); test_search.clicked.connect(self.test_searxng); general_buttons.addWidget(test_search, 2, 0, 1, 2)
+        self.delete_key_button = QPushButton("Delete Stored API Key"); self.delete_key_button.clicked.connect(self.forget_api_key); general_buttons.addWidget(self.delete_key_button, 3, 0, 1, 2)
         general_layout.addLayout(general_buttons); general_layout.addStretch(1)
 
         optimization_form.addRow("Optimization preset", self.preset)
@@ -176,8 +216,13 @@ class ConfigWidget(QWidget):
         diagnostics_button = QPushButton("Copy Redacted Diagnostics"); diagnostics_button.clicked.connect(self.copy_diagnostics); help_buttons.addWidget(diagnostics_button)
         help_layout.addLayout(help_buttons); help_layout.addStretch(1)
         self.preset.currentTextChanged.connect(self._preset_changed)
+        self.provider.currentIndexChanged.connect(self._provider_changed)
+        self.search_mode.currentIndexChanged.connect(self._update_provider_controls)
         self._preset_changed(self.preset.currentText())
-        if not cache_is_fresh(prefs) and self._has_existing_key:
+        self._update_provider_controls()
+        if not cache_is_fresh(prefs, provider=initial_provider) and (
+            self._has_existing_key or not provider_requires_key(initial_provider)
+        ):
             QTimer.singleShot(0, self._refresh_models_if_stale)
 
     @staticmethod
@@ -189,6 +234,51 @@ class ConfigWidget(QWidget):
         # Calibre's configuration host. Preferred honors the 520px cap without
         # forcing a horizontal scrollbar.
         label.setSizePolicy(QSizePolicy.Policy.Preferred, QSizePolicy.Policy.Preferred)
+
+    @staticmethod
+    def _environment_key_for(provider):
+        name = provider_spec(provider).environment_variable
+        return bool(name and os.environ.get(name, "").strip())
+
+    def _provider_id(self):
+        widget = getattr(self, "provider", None)
+        return (widget.currentData() if widget is not None else prefs["provider"]) or "openai"
+
+    def _provider_changed(self, *_):
+        self._provider_state.capture(
+            self.model.currentText(), self.endpoint.text(), self.api_key.text()
+        )
+        provider = self._provider_id()
+        selected = self._provider_state.switch(provider)
+        self._active_provider = provider
+        self.api_key.clear(); self._environment_key = self._environment_key_for(provider)
+        self._has_existing_key = bool(api_key(provider))
+        self.api_key.setEnabled(not self._environment_key)
+        self.remember_key.setEnabled(credentials.available() and not self._environment_key)
+        self.api_key.setPlaceholderText("Using environment variable" if self._environment_key else ("Stored securely — enter a replacement" if self._has_existing_key else "Optional local token" if provider in ("ollama", "lmstudio") else "API key"))
+        self.api_key_label.setText(self._api_key_field_label()); self.key_status.setText(self._key_status_text())
+        self.delete_key_button.setEnabled(self._has_existing_key)
+        target_model = selected["model"]
+        self.model.blockSignals(True); self.model.clear()
+        self.model.addItems(cached_models(
+            prefs, target_model or provider_spec(provider).default_model, provider=provider
+        ))
+        self.model.setCurrentText(target_model); self.model.blockSignals(False)
+        self.endpoint.setText(selected["endpoint"])
+        self.status.setText(self._status_text())
+        self._update_provider_controls()
+
+    def _update_provider_controls(self, *_):
+        provider = self._provider_id(); spec = provider_spec(provider)
+        local = not spec.hosted_search
+        self.endpoint.setVisible(local)
+        anthropic = provider == "anthropic"
+        self.workspace_id_label.setVisible(anthropic)
+        self.workspace_id.setVisible(anthropic)
+        self.search_mode.setEnabled(not local)
+        if local: self.search_mode.setCurrentIndex(self.search_mode.findData("searxng"))
+        uses_searxng = local or self.search_mode.currentData() == "searxng"
+        for widget in (self.searxng_url, self.max_searches, self.searxng_results): widget.setEnabled(uses_searxng)
 
     def _preset_changed(self, label):
         name = label.lower()
@@ -215,21 +305,30 @@ class ConfigWidget(QWidget):
         if not prefs["system_prompt_override"]:
             return "Using bundled prompt v%s (schema v%s)." % (PROMPT_VERSION, SCHEMA_VERSION)
         status = "validated at " + data.get("validation_timestamp", "unknown") if data else "validation required"
-        if data and data.get("validated_model") not in (None, prefs["model"]):
-            status += "; model changed since validation—revalidation is recommended"
+        if data and (
+            data.get("validated_provider") != self._provider_id()
+            or data.get("validated_model") != self.model.currentText().strip()
+        ):
+            status += "; provider or model changed since validation—revalidation is required"
         return "Custom prompt: %s" % status
 
     def _prompt_changed(self):
         self._validated = None
         self.status.setText("Edited custom prompt has not been validated or saved.")
 
-    def _provider(self):
-        key = self.api_key.text().strip() or api_key()
-        return OpenAIProvider(
-            key, self.model.currentText().strip(), self.timeout.value(), self.search.currentText(),
-            reasoning_effort=self.reasoning.currentText(), max_output_tokens=self.output_cap.value(),
-            evidence_url_limit=self.evidence_urls.value(),
-        )
+    def _provider(self, model_override=None):
+        provider = self._provider_id()
+        key = self.api_key.text().strip() or self._provider_keys.get(provider, "") or api_key(provider)
+        return create_provider({
+            "provider": provider, "api_key": key,
+            "model": self.model.currentText().strip() if model_override is None else model_override,
+            "endpoint": self.endpoint.text().strip(), "search_mode": self.search_mode.currentData(),
+            "workspace_id": self.workspace_id.text().strip(),
+            "searxng_url": self.searxng_url.text().strip(), "searxng_results": self.searxng_results.value(),
+            "max_searches": self.max_searches.value(), "timeout": self.timeout.value(), "search": self.search.currentText(),
+            "reasoning": self.reasoning.currentText(), "output_cap": self.output_cap.value(),
+            "evidence_urls": self.evidence_urls.value(), "allow_remote_endpoints": prefs["allow_remote_endpoints"],
+        })
 
     def validate_prompt(self):
         proposed = self.prompt.toPlainText().strip()
@@ -281,12 +380,13 @@ class ConfigWidget(QWidget):
             QMessageBox.critical(self, "Connection test failed", str(exc))
 
     def _refresh_models_if_stale(self):
-        if not cache_is_fresh(prefs):
+        if not cache_is_fresh(prefs, provider=self._provider_id()):
             self.refresh_model_choices(automatic=True)
 
     def refresh_model_choices(self, checked=False, automatic=False):
-        key = self.api_key.text().strip() or api_key()
-        if not key:
+        provider_id = self._provider_id()
+        key = self.api_key.text().strip() or self._provider_keys.get(provider_id, "") or api_key(provider_id)
+        if provider_requires_key(provider_id) and not key:
             if not automatic:
                 QMessageBox.warning(self, "API key required", "Enter or configure an API key before refreshing model choices.")
             return
@@ -294,9 +394,27 @@ class ConfigWidget(QWidget):
         QApplication.setOverrideCursor(Qt.CursorShape.WaitCursor)
         provider = None
         try:
-            provider = OpenAIProvider(key, current or prefs["model"], self.timeout.value())
-            models = store_models(prefs, provider.list_models())
-            choices = normalize_models(models, current)
+            provider = self._provider(model_id_for_discovery(current))
+            models = provider.list_models()
+            if provider_id == "openai":
+                choices = normalize_models(models, current)
+            elif provider_id == "anthropic":
+                choices = sanitize_anthropic_models(models + ([current] if current else []))
+            else:
+                choices = sanitize_model_list(models + ([current] if current else []))
+            store_models(prefs, models, provider=provider_id)
+            if not choices:
+                guidance = (
+                    "No compatible Claude model was returned for this account."
+                    if provider_id == "anthropic" else
+                    "No Ollama models are installed. Pull a schema-capable instruct model with 'ollama pull <model>', then refresh again."
+                    if provider_id == "ollama" else
+                    "No LM Studio model is loaded. Load a schema-capable instruct model, start the local server, then refresh again."
+                )
+                self.model_status.setText(guidance)
+                if not automatic:
+                    QMessageBox.warning(self, "No compatible models found", guidance)
+                return
             self.model.blockSignals(True); self.model.clear(); self.model.addItems(choices)
             self.model.setCurrentText(current if current in choices else choices[0]); self.model.blockSignals(False)
             self.model_status.setText("Model choices refreshed and cached for seven days. Capability support is verified separately.")
@@ -312,17 +430,27 @@ class ConfigWidget(QWidget):
             QApplication.restoreOverrideCursor()
 
     def test_capabilities(self):
-        warning = "This live capability test makes a billable model request and web search. Continue?"
+        warning = "This live capability test contacts the selected model and search provider. Hosted services may charge for it. Continue?"
         if QMessageBox.question(self, "Test model capabilities?", warning) != QMessageBox.StandardButton.Yes:
             return
         try:
             result = self._provider().test_capabilities()
+            capability_usage = dict(result["usage"])
+            capability_usage["estimated_cost_usd"] = estimate_cost_usd(
+                self.model.currentText().strip(), capability_usage,
+                provider=self._provider_id(),
+            )
             lines = [
-                "Responses API: %s" % ("supported" if result["responses_api"] else "failed"),
+                "Model API: %s" % ("supported" if result["responses_api"] else "failed"),
                 "Strict structured output: %s" % ("supported" if result["structured_output"] else "failed"),
-                "Hosted web search: %s" % ("supported" if result["web_search"] else "failed"),
-                "Configured reasoning: accepted",
-                "Usage: %s" % format_usage(self.model.currentText().strip(), dict(result["usage"], estimated_cost_usd=None)),
+                "%s search: %s" % ("SearXNG" if self.search_mode.currentData() == "searxng" else "Hosted web", "supported" if result["web_search"] else "failed"),
+                "Configured reasoning: %s" % (
+                    "accepted" if result["reasoning"] else "not provided by this integration"
+                ),
+                "Usage: %s" % format_usage(
+                    self.model.currentText().strip(), capability_usage,
+                    self._provider_id(),
+                ),
             ]
             QMessageBox.information(self, "Model capability result", "\n".join(lines))
         except Exception as exc:
@@ -334,20 +462,21 @@ class ConfigWidget(QWidget):
         QMessageBox.information(self, "Diagnostics copied", "A redacted diagnostic report was copied to the clipboard.")
 
     def forget_api_key(self):
+        provider = self._provider_id()
         message = "Delete the stored BiblioSleuth AI API key from the credential vault and this Calibre session?"
         if self._environment_key:
-            message += "\n\nOPENAI_API_KEY will remain active because environment variables cannot be removed by the plugin."
+            message += "\n\nThe provider environment variable will remain active because it cannot be removed by the plugin."
         if QMessageBox.question(self, "Delete stored API key?", message) != QMessageBox.StandardButton.Yes:
             return
         self.api_key.clear()
-        forget_session_api_key()
+        forget_session_api_key(provider)
         try:
-            credentials.delete()
+            credentials.delete(provider)
         except credentials.CredentialStoreError as exc:
             QMessageBox.warning(self, "Credential vault", str(exc))
         self._has_existing_key = bool(self._environment_key)
         self.api_key.setPlaceholderText(
-            "Using OPENAI_API_KEY" if self._environment_key else "sk-..."
+            "Using environment variable" if self._environment_key else "API key"
         )
         self.api_key_label.setText(self._api_key_field_label())
         self.delete_key_button.setEnabled(self._has_existing_key)
@@ -356,15 +485,30 @@ class ConfigWidget(QWidget):
     def _api_key_field_label(self):
         if self._environment_key:
             return "API key (environment)"
+        if not provider_requires_key(self._provider_id()): return "Local server token (optional)"
         return "Replace API key" if self._has_existing_key else "API key"
 
     def _key_status_text(self, deleted=False):
         if self._environment_key:
             suffix = " The environment key remains active." if deleted else ""
-            return "✓ API key configured by OPENAI_API_KEY. The stored value is intentionally not displayed.%s" % suffix
+            return "✓ API key configured by the provider environment variable. The stored value is intentionally not displayed.%s" % suffix
         if self._has_existing_key:
             return "✓ API key is stored securely and active. It is intentionally not displayed. Type a new key above to replace it; leaving the field blank keeps the stored key."
+        if not provider_requires_key(self._provider_id()):
+            return "No local-server token is configured. This is normal unless authentication was enabled in the server."
         return "No API key is configured. Enter one above; secure storage is used when enabled and available."
+
+    def test_searxng(self):
+        try:
+            client = SearXNGClient(
+                self.searxng_url.text().strip(), timeout=self.timeout.value(),
+                result_limit=self.searxng_results.value(),
+                allow_remote=prefs["allow_remote_endpoints"],
+            )
+            results = client.search("BiblioSleuth AI book metadata")
+            QMessageBox.information(self, "SearXNG test", "Connection succeeded and returned %d safe web result(s)." % len(results))
+        except Exception as exc:
+            QMessageBox.critical(self, "SearXNG test failed", str(exc))
 
     def show_documentation(self):
         DocumentationDialog(self).exec()
@@ -386,18 +530,28 @@ class ConfigWidget(QWidget):
         if proposed and self._validated not in (None, "default"):
             if not validation_matches_prompt(proposed, {"prompt_hash": self._validated.prompt_hash}):
                 raise ValueError("The custom system prompt changed after validation")
-        replacement_key = self.api_key.text().strip()
+        provider = self._provider_id()
+        replacement_key = self.api_key.text().strip() or self._provider_keys.get(provider, "")
+        if replacement_key: self._provider_keys[provider] = replacement_key
         if not self._environment_key:
             if replacement_key:
-                set_session_api_key(replacement_key)
+                set_session_api_key(replacement_key, provider)
                 self._has_existing_key = True
-            if self.remember_key.isChecked():
-                if replacement_key:
-                    credentials.save(replacement_key)
-            else:
-                credentials.delete()
+        if self.remember_key.isChecked():
+            for key_provider, key_value in self._provider_keys.items():
+                if key_value and not self._environment_key_for(key_provider): credentials.save(key_value, key_provider)
+        else:
+            for key_provider in ("openai", "anthropic", "ollama", "lmstudio"):
+                credentials.delete(key_provider)
         prefs["remember_api_key"] = self.remember_key.isChecked()
+        self._provider_models[provider] = self.model.currentText().strip()
+        if provider in ("ollama", "lmstudio"): self._provider_endpoints[provider] = self.endpoint.text().strip()
+        prefs["provider"] = provider; prefs["provider_models"] = self._provider_models; prefs["provider_endpoints"] = self._provider_endpoints
+        if not resolve_anthropic_workspace_id():
+            prefs["anthropic_workspace_id"] = self.workspace_id.text().strip()
         prefs["model"] = self.model.currentText().strip(); prefs["timeout"] = self.timeout.value()
+        prefs["search_mode"] = self.search_mode.currentData(); prefs["searxng_url"] = self.searxng_url.text().strip()
+        prefs["max_searches"] = self.max_searches.value(); prefs["searxng_results"] = self.searxng_results.value()
         prefs["optimization_preset"] = self.preset.currentText().lower()
         prefs["search_context_size"] = self.search.currentText(); prefs["front_matter_chars"] = self.front.value()
         prefs["reasoning_effort"] = self.reasoning.currentText(); prefs["max_output_tokens"] = self.output_cap.value()
@@ -413,6 +567,7 @@ class ConfigWidget(QWidget):
         elif self._validated and self._validated != "default":
             prefs["prompt_validation"] = {
                 key: getattr(self._validated, key) for key in (
-                    "validation_timestamp", "prompt_hash", "prompt_version", "schema_version", "validated_model"
+                    "validation_timestamp", "prompt_hash", "prompt_version", "schema_version",
+                    "validated_model", "validated_provider",
                 )
             }

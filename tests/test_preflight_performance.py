@@ -3,6 +3,22 @@ from pathlib import Path
 
 
 ACTION = Path(__file__).resolve().parents[1] / "src/bibliosleuth_ai/action.py"
+CONFIG = Path(__file__).resolve().parents[1] / "src/bibliosleuth_ai/config.py"
+PREFS = Path(__file__).resolve().parents[1] / "src/bibliosleuth_ai/prefs.py"
+
+
+def test_action_uses_shared_workspace_environment_resolver():
+    source = ACTION.read_text(encoding="utf-8")
+    assert "resolve_anthropic_workspace_id" in source
+    assert 'os.environ.get("ANTHROPIC_WORKSPACE_ID"' not in source
+
+
+def test_workspace_setting_is_claude_only_and_new_installs_default_to_sonnet_5():
+    config = CONFIG.read_text(encoding="utf-8")
+    assert 'anthropic = provider == "anthropic"' in config
+    assert "self.workspace_id.setVisible(anthropic)" in config
+    assert "self.workspace_id_label.setVisible(anthropic)" in config
+    assert '"anthropic": "claude-sonnet-5"' in PREFS.read_text(encoding="utf-8")
 
 
 def _start_method():

@@ -5,13 +5,10 @@ from urllib.error import HTTPError
 import pytest
 
 from bibliosleuth_ai.openai_provider import MAX_RESPONSE_BYTES, OpenAIProvider, ProviderError
+from bibliosleuth_ai.searxng import SearXNGError
 from bibliosleuth_ai.schema import SchemaValidationError
+from tests.http_helpers import Response
 from tests.test_schema import valid_result
-
-
-class Response(io.BytesIO):
-    def __enter__(self): return self
-    def __exit__(self, *args): pass
 
 
 def test_research_payload_uses_web_search_and_strict_schema():
@@ -33,6 +30,7 @@ def test_research_payload_uses_web_search_and_strict_schema():
         return Response(json.dumps(body).encode())
     provider = OpenAIProvider("secret", "test-model", opener=opener)
     provider.research({"opf": {}, "page_evidence": "hello"}, "prompt")
+    assert provider.last_request_started is True
     assert captured["tools"][0]["type"] == "web_search"
     assert "include" not in captured
     assert captured["text"]["format"]["strict"] is True
@@ -49,11 +47,28 @@ def test_research_payload_uses_web_search_and_strict_schema():
     assert provider.last_usage == {
         "input_tokens": 1200, "cached_tokens": 800, "output_tokens": 500,
         "reasoning_tokens": 100, "total_tokens": 1700, "web_search_calls": 1,
+        "hosted_web_search_calls": 1, "searxng_search_calls": 0,
     }
-    assert provider.last_timings["openai_seconds"] >= 0
+    assert provider.last_timings["provider_seconds"] >= 0
     assert provider.last_timings["validation_seconds"] >= 0
     provider.clear_api_key()
     assert provider.api_key == ""
+
+
+def test_failed_searxng_search_cannot_reuse_previous_openai_usage():
+    class FailingSearch:
+        last_search_calls = 0
+        def search(self, query):
+            raise SearXNGError("search failed")
+
+    provider = OpenAIProvider(
+        "secret", "gpt-test", 60, "low", search_mode="searxng",
+        searxng_client=FailingSearch(),
+    )
+    provider.last_usage = {"total_tokens": 999}
+    with pytest.raises(SearXNGError, match="search failed"):
+        provider.research({"opf": {"titles": ["Book"]}}, "prompt")
+    assert provider.last_usage == {}
 
 
 def test_oversized_response_is_rejected():
@@ -158,6 +173,20 @@ def test_non_object_response_is_rejected_cleanly():
     provider = OpenAIProvider("secret", "test-model", opener=lambda request, timeout: Response(b"[]"))
     with pytest.raises(ProviderError, match="invalid response object"):
         provider.test_connection()
+
+
+def test_incomplete_response_retains_openai_usage():
+    body = {
+        "status": "incomplete", "output": [],
+        "usage": {"input_tokens": 12, "output_tokens": 8, "total_tokens": 20},
+    }
+    provider = OpenAIProvider(
+        "secret", "test-model",
+        opener=lambda request, timeout: Response(json.dumps(body).encode()),
+    )
+    with pytest.raises(ProviderError, match="not completed"):
+        provider.test_connection()
+    assert provider.last_usage["total_tokens"] == 20
 
 
 def test_model_listing_returns_only_ids_from_objects():

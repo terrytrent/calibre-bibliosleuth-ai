@@ -17,6 +17,15 @@ class CredentialStoreError(RuntimeError):
     pass
 
 
+def _identity(provider="openai"):
+    provider = str(provider or "openai").strip().lower()
+    if provider not in ("openai", "anthropic", "ollama", "lmstudio"):
+        raise CredentialStoreError("Unknown credential provider")
+    if provider == "openai":
+        return SERVICE, ACCOUNT
+    return "org.calibre.bibliosleuth_ai.%s" % provider, "%s-api-key" % provider
+
+
 def _run(args, input_text=None):
     try:
         return subprocess.run(
@@ -40,33 +49,35 @@ def available():
     return bool(shutil.which("secret-tool"))
 
 
-def load():
+def load(provider="openai"):
+    service, account = _identity(provider)
     if sys.platform == "darwin":
-        secret, item = _mac_find()
+        secret, item = _mac_find(service, account)
         _mac_release(item)
         return secret
     if os.name == "nt":
-        return _windows_load()
+        return _windows_load(service)
     if shutil.which("secret-tool"):
-        result = _run(["secret-tool", "lookup", "service", SERVICE, "account", ACCOUNT])
+        result = _run(["secret-tool", "lookup", "service", service, "account", account])
         return result.stdout.rstrip("\r\n") if result.returncode == 0 else ""
     return ""
 
 
-def save(secret):
+def save(secret, provider="openai"):
+    service, account = _identity(provider)
     secret = (secret or "").strip()
     if not secret:
-        delete()
+        delete(provider)
         return
     if sys.platform == "darwin":
-        _mac_save(secret)
+        _mac_save(secret, service, account)
         return
     if os.name == "nt":
-        _windows_save(secret)
+        _windows_save(secret, service, account)
         return
     if shutil.which("secret-tool"):
         result = _run(
-            ["secret-tool", "store", "--label=BiblioSleuth AI OpenAI API key", "service", SERVICE, "account", ACCOUNT],
+            ["secret-tool", "store", "--label=BiblioSleuth AI %s API key" % provider, "service", service, "account", account],
             secret + "\n",
         )
         if result.returncode != 0:
@@ -75,13 +86,14 @@ def save(secret):
     raise CredentialStoreError("No supported operating-system credential vault is available")
 
 
-def delete():
+def delete(provider="openai"):
+    service, account = _identity(provider)
     if sys.platform == "darwin":
-        _mac_delete()
+        _mac_delete(service, account)
     elif os.name == "nt":
-        _windows_delete()
+        _windows_delete(service)
     elif shutil.which("secret-tool"):
-        _run(["secret-tool", "clear", "service", SERVICE, "account", ACCOUNT])
+        _run(["secret-tool", "clear", "service", service, "account", account])
 
 
 if sys.platform == "darwin":
@@ -115,8 +127,8 @@ def _mac_release(item):
         _core_foundation.CFRelease(item)
 
 
-def _mac_find():
-    service, account = _mac_bytes(SERVICE), _mac_bytes(ACCOUNT)
+def _mac_find(service=SERVICE, account=ACCOUNT):
+    service, account = _mac_bytes(service), _mac_bytes(account)
     length = ctypes.c_uint32()
     data = ctypes.c_void_p()
     item = ctypes.c_void_p()
@@ -133,14 +145,14 @@ def _mac_find():
     return secret, item
 
 
-def _mac_save(secret):
-    existing, item = _mac_find()
+def _mac_save(secret, service=SERVICE, account=ACCOUNT):
+    existing, item = _mac_find(service, account)
     raw = _mac_bytes(secret)
     try:
         if item:
             status = _security.SecKeychainItemModifyAttributesAndData(item, None, len(raw), raw)
         else:
-            service, account = _mac_bytes(SERVICE), _mac_bytes(ACCOUNT)
+            service, account = _mac_bytes(service), _mac_bytes(account)
             created = ctypes.c_void_p()
             status = _security.SecKeychainAddGenericPassword(
                 None, len(service), service, len(account), account, len(raw), raw, ctypes.byref(created),
@@ -152,8 +164,8 @@ def _mac_save(secret):
         _mac_release(item)
 
 
-def _mac_delete():
-    secret, item = _mac_find()
+def _mac_delete(service=SERVICE, account=ACCOUNT):
+    secret, item = _mac_find(service, account)
     if not item:
         return
     try:
@@ -187,9 +199,9 @@ if os.name == "nt":
     _advapi.CredFree.argtypes = [ctypes.c_void_p]
 
 
-def _windows_load():
+def _windows_load(service=SERVICE):
     pointer = ctypes.POINTER(CREDENTIALW)()
-    if not _advapi.CredReadW(SERVICE, CRED_TYPE_GENERIC, 0, ctypes.byref(pointer)):
+    if not _advapi.CredReadW(service, CRED_TYPE_GENERIC, 0, ctypes.byref(pointer)):
         return ""
     try:
         credential = pointer.contents
@@ -199,19 +211,19 @@ def _windows_load():
         _advapi.CredFree(pointer)
 
 
-def _windows_save(secret):
+def _windows_save(secret, service=SERVICE, account=ACCOUNT):
     raw = secret.encode("utf-16-le")
     blob = (ctypes.c_ubyte * len(raw)).from_buffer_copy(raw)
     credential = CREDENTIALW()
     credential.Type = CRED_TYPE_GENERIC
-    credential.TargetName = SERVICE
+    credential.TargetName = service
     credential.CredentialBlobSize = len(raw)
     credential.CredentialBlob = ctypes.cast(blob, ctypes.POINTER(ctypes.c_ubyte))
     credential.Persist = CRED_PERSIST_LOCAL_MACHINE
-    credential.UserName = ACCOUNT
+    credential.UserName = account
     if not _advapi.CredWriteW(ctypes.byref(credential), 0):
         raise CredentialStoreError("Could not save the API key in Windows Credential Manager")
 
 
-def _windows_delete():
-    _advapi.CredDeleteW(SERVICE, CRED_TYPE_GENERIC, 0)
+def _windows_delete(service=SERVICE):
+    _advapi.CredDeleteW(service, CRED_TYPE_GENERIC, 0)

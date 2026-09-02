@@ -32,9 +32,9 @@ class StatisticsDialog(QDialog):
         layout = QVBoxLayout(self)
         filters = QHBoxLayout()
         self.period = QComboBox(); self.period.addItems(["Session", "7 days", "30 days", "90 days", "All"])
-        self.model = QComboBox(); self.preset = QComboBox(); self.source = QComboBox(); self.source.addItems(["All", "Live", "Cache"])
+        self.provider = QComboBox(); self.model = QComboBox(); self.preset = QComboBox(); self.source = QComboBox(); self.source.addItems(["All", "Live", "Cache"])
         self.outcome = QComboBox(); self.outcome.addItems(["All", "ready", "applied", "skipped", "discarded", "failed", "cancelled"])
-        for label, widget in (("Period", self.period), ("Model", self.model), ("Preset", self.preset), ("Source", self.source), ("Outcome", self.outcome)):
+        for label, widget in (("Period", self.period), ("Provider", self.provider), ("Model", self.model), ("Preset", self.preset), ("Source", self.source), ("Outcome", self.outcome)):
             filters.addWidget(QLabel(label)); filters.addWidget(widget)
         filters.addStretch(1); layout.addLayout(filters)
         self.tabs = QTabWidget(); layout.addWidget(self.tabs)
@@ -42,6 +42,7 @@ class StatisticsDialog(QDialog):
         comparison = QWidget(); comparison_layout = QVBoxLayout(comparison); group_row = QHBoxLayout()
         group_row.addWidget(QLabel("Group by")); self.group_by = QComboBox()
         self.group_by.addItem("Optimization preset", "preset"); self.group_by.addItem("Model", "model")
+        self.group_by.addItem("AI provider", "provider"); self.group_by.addItem("Search provider", "search_provider")
         self.group_by.addItem("Live vs cache", "source"); self.group_by.addItem("Outcome", "outcome")
         self.group_by.addItem("Date", "date"); self.group_by.addItem("Single vs batch", "batch_type")
         group_row.addWidget(self.group_by); group_row.addStretch(1); comparison_layout.addLayout(group_row)
@@ -55,24 +56,27 @@ class StatisticsDialog(QDialog):
         clear = QPushButton("Clear all statistics…"); clear.clicked.connect(self.clear_history)
         close = QPushButton("Close"); close.clicked.connect(self.accept)
         buttons.addWidget(export); buttons.addWidget(clear); buttons.addStretch(1); buttons.addWidget(close); layout.addLayout(buttons)
-        for widget in (self.period, self.model, self.preset, self.source, self.outcome, self.group_by):
+        for widget in (self.period, self.provider, self.model, self.preset, self.source, self.outcome, self.group_by):
             widget.currentIndexChanged.connect(self.refresh)
         self._populate_filter_values(); self.refresh()
 
     def _populate_filter_values(self):
         records = self.store.records()
-        self.model.blockSignals(True); self.preset.blockSignals(True)
+        self.provider.blockSignals(True); self.model.blockSignals(True); self.preset.blockSignals(True)
+        self.provider.clear(); self.provider.addItem("All")
         self.model.clear(); self.model.addItem("All")
         self.preset.clear(); self.preset.addItem("All")
         self.model.addItems(sorted({str(r.get("model")) for r in records if r.get("model")}))
+        self.provider.addItems(sorted({str(r.get("provider", "openai")) for r in records}))
         self.preset.addItems(sorted({str(r.get("preset")) for r in records if r.get("preset")}))
-        self.model.blockSignals(False); self.preset.blockSignals(False)
+        self.provider.blockSignals(False); self.model.blockSignals(False); self.preset.blockSignals(False)
 
     def _filtered(self):
         return filter_records(
             self.store.records(), self.period.currentText(), self.model.currentText(),
             self.preset.currentText(), self.source.currentText().lower(),
             self.outcome.currentText().lower(), self.store.session_id,
+            provider=self.provider.currentText().lower(),
         )
 
     def refresh(self, *_):
@@ -81,7 +85,8 @@ class StatisticsDialog(QDialog):
         timing_rows = [
             ("Queue wait", timing["queue_wait_seconds"]), ("EPUB fingerprint", timing["fingerprint_seconds"]),
             ("Cache lookup", timing["cache_lookup_seconds"]), ("EPUB extraction", timing["epub_extraction_seconds"]),
-            ("OpenAI request (search + reasoning + generation)", timing["openai_seconds"]),
+            ("AI provider request", timing["provider_seconds"]),
+            ("Application-managed search", timing["search_seconds"]),
             ("Response validation", timing["validation_seconds"]), ("Total retrieval", timing["retrieval_seconds"]),
             ("Waiting for review", timing["review_wait_seconds"]), ("Metadata normalization and application", timing["apply_seconds"]),
         ]
@@ -102,9 +107,11 @@ class StatisticsDialog(QDialog):
             "<h2>Usage and estimated cost</h2><table cellspacing='8'>"
             "<tr><td>Input tokens</td><td>%d</td><td>Cached input</td><td>%d</td></tr>"
             "<tr><td>Output tokens</td><td>%d</td><td>Reasoning tokens</td><td>%d</td></tr>"
-            "<tr><td>Total tokens</td><td>%d</td><td>Web searches</td><td>%d</td></tr>"
+            "<tr><td>Total tokens</td><td>%d</td><td>All web searches</td><td>%d</td></tr>"
+            "<tr><td>Hosted searches</td><td>%d</td><td>SearXNG searches</td><td>%d</td></tr>"
             "<tr><td>Average tokens / record</td><td>%s</td><td>Tokens / success</td><td>%s</td></tr>"
             "<tr><td>Estimated total cost</td><td>%s</td><td>Average cost / record</td><td>%s</td></tr>"
+            "<tr><td>Cost estimate coverage</td><td>%d known</td><td>Unavailable costs</td><td>%d</td></tr>"
             "<tr><td>Cost / success</td><td>%s</td><td>Estimated cache savings</td><td>%s</td></tr></table>"
             "<p><i>Cost estimates use standard pricing as of %s and are not invoices.</i></p>" % (
                 data["records"], data["successful"], _number(success_rate, 1), data["failed"], data["cancelled"],
@@ -113,9 +120,10 @@ class StatisticsDialog(QDialog):
                 _duration(data["average_seconds"]), _duration(data["median_seconds"]), _duration(data["fastest_seconds"]),
                 _duration(data["slowest_seconds"]), _duration(data["p90_seconds"]), _duration(data["p95_seconds"]), rows,
                 usage["input_tokens"], usage["cached_tokens"], usage["output_tokens"], usage["reasoning_tokens"],
-                usage["total_tokens"], usage["web_search_calls"], _number(data["average_tokens"], 0),
+                usage["total_tokens"], usage["web_search_calls"], usage["hosted_web_search_calls"], usage["searxng_search_calls"], _number(data["average_tokens"], 0),
                 _number(data["tokens_per_success"], 0), _money(usage["estimated_cost_usd"]),
-                _money(data["average_cost"]), _money(data["cost_per_success"]),
+                _money(data["average_cost"]), data["known_cost_records"],
+                data["unknown_cost_records"], _money(data["cost_per_success"]),
                 _money(usage["estimated_avoided_cost_usd"]), html.escape(PRICING_AS_OF),
             )
         )

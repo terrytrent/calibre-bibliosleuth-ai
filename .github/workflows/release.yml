@@ -63,6 +63,38 @@ jobs:
       - run: python -m pip install --disable-pip-version-check --require-hashes -r requirements-runtime.txt
       - run: python -m pytest -q
 
+  searxng-integration:
+    name: Real SearXNG integration
+    needs: validate_tag
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7
+        with:
+          python-version: "3.13"
+      - run: python -m pip install --disable-pip-version-check pytest==9.1.1
+      - run: make test-searxng
+
+  local-model-integration:
+    name: Local model (${{ matrix.runtime }})
+    needs: validate_tag
+    strategy:
+      fail-fast: false
+      matrix:
+        runtime: [ollama, openai-compatible]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7
+        with:
+          python-version: "3.13"
+      - run: python -m pip install --disable-pip-version-check pytest==9.1.1
+      - run: make test-${{ matrix.runtime }}
+
   bandit:
     name: Bandit security scan
     needs: validate_tag
@@ -148,7 +180,7 @@ jobs:
 
   package:
     name: Build and verify release package
-    needs: [validate_tag, tests, bandit, dependencies, codeql, trivy, qlty]
+    needs: [validate_tag, tests, searxng-integration, local-model-integration, bandit, dependencies, codeql, trivy, qlty]
     runs-on: ubuntu-latest
     permissions:
       contents: read

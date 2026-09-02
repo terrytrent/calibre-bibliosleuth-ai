@@ -19,6 +19,13 @@ def validation_matches_prompt(prompt, status):
     return bool(status) and status.get("prompt_hash") == prompt_digest(prompt)
 
 
+def validation_matches_runtime(status, provider, model):
+    return bool(status) and (
+        status.get("validated_provider") == provider
+        and status.get("validated_model") == model
+    )
+
+
 @dataclass
 class PromptValidationResult:
     accepted_prompt: str
@@ -27,6 +34,7 @@ class PromptValidationResult:
     validation_timestamp: str
     prompt_hash: str
     validated_model: str
+    validated_provider: str
     prompt_version: str = PROMPT_VERSION
     schema_version: str = SCHEMA_VERSION
 
@@ -108,4 +116,5 @@ def validate_and_repair_prompt(provider, prompt):
         validation_timestamp=datetime.now(timezone.utc).isoformat(),
         prompt_hash=prompt_digest(candidate),
         validated_model=getattr(provider, "model", "unknown"),
+        validated_provider=getattr(provider, "provider_id", "unknown"),
     )

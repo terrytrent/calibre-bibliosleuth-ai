@@ -17,7 +17,7 @@ def _module():
 
 def test_extracts_only_requested_version_body():
     notes = _module()["release_notes"](
-        "# Changelog\n\n## Unreleased\n\n- Future\n\n## 1.2.0 — 2026-08-25\n\n### Added\n\n- Useful change\n\n## 1.1.0\n\n- Old change\n",
+        "# Changelog\n\n## [Unreleased]\n\n- Future\n\n## [1.2.0] - 2026-08-25\n\n### Added\n\n- Useful change\n\n## [1.1.0]\n\n- Old change\n",
         "1.2.0",
     )
     assert notes == "### Added\n\n- Useful change\n"

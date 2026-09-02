@@ -4,7 +4,8 @@
 
 - calibre 7 or newer
 - One or more books containing an EPUB format
-- An OpenAI API key with billing enabled
+- OpenAI or Anthropic API access, or a running Ollama/LM Studio model server
+- Hosted search where supported, or a separately running SearXNG service
 - Internet access while researching metadata
 
 ## Install

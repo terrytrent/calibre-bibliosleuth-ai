@@ -15,7 +15,7 @@ def release_notes(changelog, version):
     start = None
     for index, line in enumerate(lines):
         match = HEADING.match(line)
-        if match and re.match(rf"^{re.escape(version)}(?:\s|$)", match.group(1)):
+        if match and re.match(rf"^\[?{re.escape(version)}\]?(?:\s|$)", match.group(1)):
             start = index + 1
             break
     if start is None:

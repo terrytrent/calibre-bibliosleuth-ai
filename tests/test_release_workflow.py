@@ -21,6 +21,8 @@ def test_tagged_release_workflow_has_all_required_gates():
         "Trivy security scan",
         "Qlty code-quality pass",
         "python -m pytest -q",
+        "make test-searxng",
+        "local-model-integration",
         "python scripts/build_plugin.py",
         "sha256sum --check BiblioSleuth-AI.zip.sha256",
         'gh release create "$GITHUB_REF_NAME"',
@@ -97,6 +99,14 @@ def test_ci_pins_tooling_and_builds_package_once_after_matrix():
     security = SECURITY_WORKFLOW.read_text(encoding="utf-8")
     release = WORKFLOW.read_text(encoding="utf-8")
     assert "pytest==9.1.1" in ci and "pytest==9.1.1" in release
+    assert "searxng/searxng@sha256:" in (ROOT / "scripts/test_searxng_integration.sh").read_text(encoding="utf-8")
+    assert "searxng-integration" in ci and "searxng-integration" in release
+    assert "make test-${{ matrix.runtime }}" in ci
+    assert "make test-${{ matrix.runtime }}" in release
+    harness = (ROOT / "scripts/test_local_model_integration.sh").read_text(encoding="utf-8")
+    assert "ollama/ollama@sha256:" in harness
+    assert "ghcr.io/ggml-org/llama.cpp@sha256:" in harness
+    assert "GGUF_SHA256=" in harness
     assert "bandit==1.9.4" in security and "bandit==1.9.4" in release
     assert "ruff==0.12.12" in release
     assert "needs: core-tests" in ci

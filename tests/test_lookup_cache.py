@@ -33,6 +33,14 @@ def test_cache_key_covers_research_inputs_but_not_control_flags():
     assert research_cache_key("fingerprint", settings(requested_fields=["comments", "authors"])) == research_cache_key(
         "fingerprint", settings(requested_fields=["authors", "comments"])
     )
+    local = settings(provider="ollama", endpoint="http://127.0.0.1:11434/v1")
+    local_key = research_cache_key("fingerprint", local)
+    assert research_cache_key(
+        "fingerprint", settings(provider="ollama", endpoint="http://127.0.0.1:9999/v1")
+    ) != local_key
+    assert research_cache_key(
+        "fingerprint", dict(local, allow_remote_endpoints=True)
+    ) != local_key
 
 
 def test_cache_is_copying_bounded_lru():
