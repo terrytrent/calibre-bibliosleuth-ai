@@ -93,4 +93,6 @@ jobs:
       - name: Install test tooling
         run: python -m pip install --disable-pip-version-check pytest==9.1.1
       - name: Run disposable local-model contract test
-        run: make test-${{ matrix.runtime }}
+        env:
+          LOCAL_MODEL_RUNTIME: ${{ matrix.runtime }}
+        run: make "test-${LOCAL_MODEL_RUNTIME}"

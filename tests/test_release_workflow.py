@@ -101,8 +101,10 @@ def test_ci_pins_tooling_and_builds_package_once_after_matrix():
     assert "pytest==9.1.1" in ci and "pytest==9.1.1" in release
     assert "searxng/searxng@sha256:" in (ROOT / "scripts/test_searxng_integration.sh").read_text(encoding="utf-8")
     assert "searxng-integration" in ci and "searxng-integration" in release
-    assert "make test-${{ matrix.runtime }}" in ci
-    assert "make test-${{ matrix.runtime }}" in release
+    for workflow in (ci, release):
+        assert "LOCAL_MODEL_RUNTIME: ${{ matrix.runtime }}" in workflow
+        assert 'make "test-${LOCAL_MODEL_RUNTIME}"' in workflow
+        assert "make test-${{ matrix.runtime }}" not in workflow
     harness = (ROOT / "scripts/test_local_model_integration.sh").read_text(encoding="utf-8")
     assert "ollama/ollama@sha256:" in harness
     assert "ghcr.io/ggml-org/llama.cpp@sha256:" in harness
@@ -112,6 +114,11 @@ def test_ci_pins_tooling_and_builds_package_once_after_matrix():
     assert "needs: core-tests" in ci
     assert ci.count("python scripts/build_plugin.py") == 1
     assert "sha256sum --check BiblioSleuth-AI.zip.sha256" in ci
+
+
+def test_link_check_allows_unpublished_keep_a_changelog_comparisons():
+    assurance = (ROOT / ".github/workflows/assurance.yml").read_text(encoding="utf-8")
+    assert "--exclude https://github.com/terrytrent/calibre-bibliosleuth-ai/compare/" in assurance
 
 
 def test_readme_has_live_pipeline_badges():
