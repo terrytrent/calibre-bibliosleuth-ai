@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- Preserved completed SearXNG search counts and timing when an Ollama or LM Studio
+  request subsequently returns invalid structured output.
+- Disabled the ineffective Reasoning effort control for Ollama and LM Studio,
+  normalized local statistics to no configured reasoning, and clarified that LM
+  Studio reasoning is determined by the loaded model.
+
 ## [1.1.0] - 2026-09-02
 
 ### Changed

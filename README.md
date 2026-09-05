@@ -212,6 +212,9 @@ returning an empty standard `content` field; BiblioSleuth AI rejects that as
 invalid structured output. In maintainer testing, `qwen/qwen3-4b-2507` completed
 the integration workflow, while `qwen/qwen3-4b-thinking-2507` exhibited this exact
 failure. Model availability and behavior can change, so run both readiness tests.
+The Reasoning effort control is disabled for both local integrations: LM Studio
+reasoning is determined by the loaded model, while BiblioSleuth AI explicitly
+requests no reasoning from Ollama for reliable structured output.
 
 Local model quality, context capacity, structured-output reliability, speed, and
 hardware requirements vary considerably. A successful connection test proves
