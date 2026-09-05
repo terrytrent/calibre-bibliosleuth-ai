@@ -2,9 +2,16 @@ import pytest
 
 from bibliosleuth_ai.provider_base import ProviderError
 from bibliosleuth_ai.providers import (
-    model_id_for_discovery, resolve_anthropic_workspace_id, sanitize_anthropic_models,
+    effective_reasoning, model_id_for_discovery, resolve_anthropic_workspace_id, sanitize_anthropic_models,
     sanitize_anthropic_workspace_id, sanitize_model_id, sanitize_model_list,
 )
+
+
+def test_effective_reasoning_is_disabled_for_local_integrations():
+    assert effective_reasoning("ollama", "high") == "none"
+    assert effective_reasoning("lmstudio", "high") == "none"
+    assert effective_reasoning("openai", "high") == "high"
+    assert effective_reasoning("anthropic", "medium") == "medium"
 
 
 def test_model_ids_are_sanitized_for_every_provider():

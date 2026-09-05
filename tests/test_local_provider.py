@@ -84,6 +84,31 @@ def test_invalid_local_output_retains_reported_usage():
     assert provider.last_usage["total_tokens"] == 20
 
 
+@pytest.mark.parametrize("provider_id", ["ollama", "lmstudio"])
+def test_invalid_local_output_retains_completed_searxng_usage(provider_id):
+    search = Search()
+
+    def opener(request, timeout):
+        return Response(json.dumps({
+            "choices": [{"message": {"content": ""}}],
+            "usage": {"prompt_tokens": 12, "completion_tokens": 8, "total_tokens": 20},
+        }).encode())
+
+    provider = LocalProvider(
+        provider_id, "http://127.0.0.1:1234/v1", "qwen",
+        opener=opener, searxng_client=search,
+    )
+    with pytest.raises(Exception, match="invalid structured output"):
+        provider.research({
+            "opf": {"titles": ["Book"], "identifiers": ["9781234567890"]}
+        }, "prompt")
+    assert provider.last_usage["total_tokens"] == 20
+    assert provider.last_usage["web_search_calls"] == 2
+    assert provider.last_usage["searxng_search_calls"] == 2
+    assert provider.last_usage["hosted_web_search_calls"] == 0
+    assert provider.last_timings["search_seconds"] >= 0
+
+
 def test_cancellation_after_search_prevents_local_model_request():
     checks = iter((False, True))
     model_called = []

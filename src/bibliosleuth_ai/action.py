@@ -25,7 +25,7 @@ from .onboarding import SetupWizard
 from .normalizer import normalize_identifiers, normalize_tags, sanitize_comments
 from .lookup_cache import SESSION_LOOKUP_CACHE, epub_file_signature, epub_fingerprint, research_cache_key
 from .providers import (
-    create_provider, PROVIDER_LABELS, provider_spec,
+    create_provider, effective_reasoning, PROVIDER_LABELS, provider_spec,
     resolve_anthropic_workspace_id,
 )
 from .provider_base import ProviderCancelled
@@ -304,7 +304,11 @@ def research_books(jobs, settings, log=None, abort=None, notifications=None):
                         usage["web_search_calls"] += calls
                         usage["searxng_search_calls"] += calls
                     else:
-                        timing["provider_seconds"] = elapsed
+                        provider_timing = getattr(provider, "last_timings", {}) or {}
+                        search_seconds = float(provider_timing.get("search_seconds") or 0.0)
+                        if search_seconds:
+                            timing["search_seconds"] = search_seconds
+                        timing["provider_seconds"] = max(0.0, elapsed - search_seconds)
                 elif phase == "extraction": timing["epub_extraction_seconds"] = time.perf_counter() - started
                 elif phase == "fingerprint": timing["fingerprint_seconds"] = time.perf_counter() - started
                 if phase != "provider" and "estimated_cost_usd" not in detail:
@@ -955,7 +959,7 @@ class BiblioSleuthAIAction(InterfaceAction):
                 "search_mode": search_mode, "searxng_url": prefs["searxng_url"], "searxng_results": prefs["searxng_results"],
                 "max_searches": prefs["max_searches"], "allow_remote_endpoints": prefs["allow_remote_endpoints"], "timeout": prefs["timeout"],
                 "search": optimization["search_context_size"], "front": optimization["front_matter_chars"],
-                "reasoning": optimization["reasoning_effort"], "output_cap": optimization["max_output_tokens"],
+                "reasoning": effective_reasoning(provider, optimization["reasoning_effort"]), "output_cap": optimization["max_output_tokens"],
                 "evidence_urls": optimization["evidence_url_limit"], "prompt": effective_prompt(), "preset": prefs["optimization_preset"],
                 "requested_fields": list(requested_fields or FIELD_NAMES), "force_refresh": bool(force_refresh)}
 

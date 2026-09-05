@@ -60,6 +60,12 @@ search context, none/low/medium/high reasoning, 800–10,000 output tokens, and
 written to Calibre; changing presets does not change them. A low output-token cap
 can still prevent the model from completing a long structured response.
 
+**Reasoning effort** is available for OpenAI and Claude under Custom optimization.
+It is disabled for both local integrations because BiblioSleuth AI cannot use the
+setting there: Ollama reasoning is explicitly disabled for structured-output
+reliability, while LM Studio reasoning is controlled by the loaded model. Select
+a non-thinking instruct model in LM Studio.
+
 ## System prompt
 
 An empty override uses the bundled prompt. Use **View Default**, **Preview Effective Prompt**, **Validate Prompt**, **Copy Default**, and **Restore Default** to manage an override safely. Custom prompts cannot be saved until validation succeeds.

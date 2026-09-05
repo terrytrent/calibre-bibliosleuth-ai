@@ -82,11 +82,14 @@ class LocalProvider(MetadataResearchProvider):
         if not isinstance(result, dict):
             raise ProviderError("%s returned an invalid response object" % self.provider_id)
         usage = result.get("usage") or {}
-        self.last_usage = ProviderUsage(
+        token_usage = ProviderUsage(
             input_tokens=int(usage.get("prompt_tokens") or 0),
             output_tokens=int(usage.get("completion_tokens") or 0),
             total_tokens=int(usage.get("total_tokens") or 0),
         ).as_dict()
+        for key in ("web_search_calls", "hosted_web_search_calls", "searxng_search_calls"):
+            token_usage[key] = int(self.last_usage.get(key) or 0)
+        self.last_usage = token_usage
         try:
             content = result["choices"][0]["message"]["content"]
             raw = json.loads(content) if isinstance(content, str) else content
@@ -117,6 +120,11 @@ class LocalProvider(MetadataResearchProvider):
         self.last_usage = ProviderUsage(
             web_search_calls=calls, searxng_search_calls=calls
         ).as_dict()
+        self.last_timings = {
+            "search_seconds": search_seconds,
+            "provider_seconds": 0.0,
+            "validation_seconds": 0.0,
+        }
         provider_started = time.perf_counter()
         ensure_not_cancelled(self.cancellation_callback)
         raw = self._request(

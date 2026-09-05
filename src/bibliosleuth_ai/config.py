@@ -11,7 +11,7 @@ from . import credentials
 from .docs import DocumentationDialog
 from .provider_base import ProviderError
 from .providers import (
-    create_provider, PROVIDER_LABELS, provider_spec, sanitize_anthropic_models,
+    create_provider, effective_reasoning, PROVIDER_LABELS, provider_spec, sanitize_anthropic_models,
     sanitize_model_list, resolve_anthropic_workspace_id, model_id_for_discovery,
 )
 from .provider_config import ProviderConfigurationState
@@ -279,6 +279,32 @@ class ConfigWidget(QWidget):
         if local: self.search_mode.setCurrentIndex(self.search_mode.findData("searxng"))
         uses_searxng = local or self.search_mode.currentData() == "searxng"
         for widget in (self.searxng_url, self.max_searches, self.searxng_results): widget.setEnabled(uses_searxng)
+        self._update_optimization_controls()
+
+    def _update_optimization_controls(self):
+        name = self.preset.currentText().lower()
+        custom = name == "custom"
+        for widget in (self.front, self.search, self.output_cap, self.evidence_urls):
+            widget.setEnabled(custom)
+        supports_reasoning = provider_spec(self._provider_id()).reasoning
+        self.reasoning.setEnabled(custom and supports_reasoning)
+        if self._provider_id() == "lmstudio":
+            explanation = "Reasoning is controlled by the loaded model. Use a non-thinking instruct model for reliable structured output."
+        elif self._provider_id() == "ollama":
+            explanation = "BiblioSleuth AI disables Ollama reasoning for reliable structured output."
+        else:
+            explanation = "Controls reasoning effort for supported hosted models when Custom optimization is selected."
+        self.reasoning.setToolTip(explanation)
+        summaries = {
+            "economy": "Lowest expected cost: shorter title/copyright evidence, low search context, no reasoning, 2 evidence URLs.",
+            "balanced": "Recommended: bounded title/copyright evidence, low search context and reasoning, 3 evidence URLs.",
+            "thorough": "Hard editions: longer title/copyright evidence, medium search context and reasoning, 4 evidence URLs.",
+            "custom": "Advanced controls are unlocked below. Higher settings can increase latency and cost.",
+        }
+        summary = summaries.get(name, "")
+        if not supports_reasoning:
+            summary += " Reasoning effort is unavailable for this local integration."
+        self.preset_description.setText(summary.strip())
 
     def _preset_changed(self, label):
         name = label.lower()
@@ -289,16 +315,7 @@ class ConfigWidget(QWidget):
             self.reasoning.setCurrentText(values["reasoning_effort"])
             self.output_cap.setValue(values["max_output_tokens"])
             self.evidence_urls.setValue(values["evidence_url_limit"])
-        summaries = {
-            "economy": "Lowest expected cost: shorter title/copyright evidence, low search context, no reasoning, 2 evidence URLs.",
-            "balanced": "Recommended: bounded title/copyright evidence, low search context and reasoning, 3 evidence URLs.",
-            "thorough": "Hard editions: longer title/copyright evidence, medium search context and reasoning, 4 evidence URLs.",
-            "custom": "Advanced controls are unlocked below. Higher settings can increase latency and cost.",
-        }
-        self.preset_description.setText(summaries.get(name, ""))
-        custom = name == "custom"
-        for widget in (self.front, self.search, self.reasoning, self.output_cap, self.evidence_urls):
-            widget.setEnabled(custom)
+        self._update_optimization_controls()
 
     def _status_text(self):
         data = prefs["prompt_validation"] or {}
@@ -326,7 +343,7 @@ class ConfigWidget(QWidget):
             "workspace_id": self.workspace_id.text().strip(),
             "searxng_url": self.searxng_url.text().strip(), "searxng_results": self.searxng_results.value(),
             "max_searches": self.max_searches.value(), "timeout": self.timeout.value(), "search": self.search.currentText(),
-            "reasoning": self.reasoning.currentText(), "output_cap": self.output_cap.value(),
+            "reasoning": effective_reasoning(provider, self.reasoning.currentText()), "output_cap": self.output_cap.value(),
             "evidence_urls": self.evidence_urls.value(), "allow_remote_endpoints": prefs["allow_remote_endpoints"],
         })
 

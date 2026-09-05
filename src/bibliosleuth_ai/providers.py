@@ -94,6 +94,11 @@ def provider_spec(provider_id):
         raise ProviderError("Unknown AI provider: %s" % provider_id) from exc
 
 
+def effective_reasoning(provider_id, configured):
+    """Return only reasoning effort that the selected integration can control."""
+    return str(configured or "none") if provider_spec(provider_id).reasoning else "none"
+
+
 def sanitize_model_id(value):
     value = str(value or "").strip()
     if not is_model_id(value):
@@ -147,7 +152,7 @@ def create_provider(settings):
     common = {
         "model": sanitize_model_id(settings.model),
         "timeout": settings.timeout,
-        "reasoning_effort": settings.reasoning,
+        "reasoning_effort": effective_reasoning(settings.provider, settings.reasoning),
         "max_output_tokens": settings.output_cap,
         "evidence_url_limit": settings.evidence_urls,
         "searxng_client": searxng,
