@@ -124,7 +124,7 @@ independent of Calibre and Qt where practical so it remains directly testable.
 ## Publishing
 
 Merge the completed release commit to `main`, then push an annotated semantic tag
-such as `v1.1.0`. The version must match the plugin and documentation. The tagged
+such as `v1.1.1`. The version must match the plugin and documentation. The tagged
 release workflow verifies main ancestry, runs the complete test matrix, Bandit,
 CodeQL, Trivy, dependency auditing, and the blocking Ruff correctness gate, builds
 and re-verifies the package, and creates the GitHub Release with

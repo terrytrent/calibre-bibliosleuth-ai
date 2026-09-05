@@ -10,7 +10,7 @@ class BiblioSleuthAIPlugin(InterfaceActionBase):
     description = "Research and review exact-edition EPUB metadata with AI"
     supported_platforms = ["windows", "osx", "linux"]
     author = "Terry Trent"
-    version = (1, 1, 0)
+    version = (1, 1, 1)
     minimum_calibre_version = (7, 0, 0)
     actual_plugin = "calibre_plugins.bibliosleuth_ai.action:BiblioSleuthAIAction"
 
