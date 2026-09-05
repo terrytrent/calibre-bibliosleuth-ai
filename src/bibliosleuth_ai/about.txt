@@ -4,7 +4,7 @@ AI-powered exact-edition EPUB metadata research for Calibre.
 
 Author: Terry Trent
 Bundled dependency: defusedxml 0.7.1 (Python Software Foundation License)
-Version: 1.1.0
+Version: 1.1.1
 License: MIT
 Minimum Calibre version: 7.0.0
 Platforms: Windows, macOS, and Linux
