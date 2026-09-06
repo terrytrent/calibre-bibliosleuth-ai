@@ -25,10 +25,11 @@ from .onboarding import SetupWizard
 from .normalizer import normalize_identifiers, normalize_tags, sanitize_comments
 from .lookup_cache import SESSION_LOOKUP_CACHE, epub_file_signature, epub_fingerprint, research_cache_key
 from .providers import (
-    create_provider, effective_reasoning, PROVIDER_LABELS, provider_spec,
+    create_provider, effective_reasoning, preflight_research_services,
+    PROVIDER_LABELS, provider_spec,
     resolve_anthropic_workspace_id,
 )
-from .provider_base import ProviderCancelled
+from .provider_base import ProviderCancelled, ServicePreflightError
 from .prefs import api_key, diagnostic_journal, effective_optimization_settings, effective_prompt, metrics_store, prefs, prompt_needs_revalidation, provider_requires_key
 from .review import ReviewDialog
 from .statistics_dialog import StatisticsDialog
@@ -99,22 +100,28 @@ class PendingResultsNotification(QDialog):
 
 class CompletionDialog(QDialog):
     """Resizable completion summary that cannot be clipped by Calibre's info dialog."""
-    def __init__(self, message, parent=None, window_title="BiblioSleuth AI operation complete"):
+    def __init__(self, message, parent=None, window_title="BiblioSleuth AI operation complete",
+                 heading="BiblioSleuth AI operation complete"):
         super().__init__(parent)
         self.message = message
         self.setWindowTitle(window_title)
         self.resize(760, 320)
         self.setMinimumSize(560, 260)
         layout = QVBoxLayout(self)
-        title = QLabel("BiblioSleuth AI operation complete")
+        title = QLabel(heading)
         title_font = title.font(); title_font.setBold(True); title_font.setPointSize(title_font.pointSize() + 2); title.setFont(title_font)
         layout.addWidget(title)
         self.summary = QPlainTextEdit(); self.summary.setReadOnly(True); self.summary.setPlainText(message)
         self.summary.setAccessibleName("BiblioSleuth AI completion summary"); layout.addWidget(self.summary)
-        buttons = QDialogButtonBox(QDialogButtonBox.StandardButton.Close)
-        copy_button = buttons.addButton("Copy summary", QDialogButtonBox.ButtonRole.ActionRole)
+        self.buttons = QDialogButtonBox(QDialogButtonBox.StandardButton.Close)
+        copy_button = self.buttons.addButton("Copy summary", QDialogButtonBox.ButtonRole.ActionRole)
         copy_button.clicked.connect(lambda: QApplication.clipboard().setText(self.message))
-        buttons.rejected.connect(self.reject); layout.addWidget(buttons)
+        self.buttons.rejected.connect(self.reject); layout.addWidget(self.buttons)
+
+    def add_action(self, label, callback):
+        button = self.buttons.addButton(label, QDialogButtonBox.ButtonRole.ActionRole)
+        button.clicked.connect(callback)
+        return button
 
 
 class SpecificFieldsDialog(QDialog):
@@ -184,7 +191,60 @@ def research_books(jobs, settings, log=None, abort=None, notifications=None):
         else:
             usage["estimated_cost_usd"] += detail["estimated_cost_usd"]
         return detail
+
+    def finish_payload(preflight_error="", preflight_service=""):
+        if log is not None:
+            if unknown_cost_operations:
+                usage["estimated_cost_usd"] = None
+            log("Total usage: " + format_usage(
+                settings["model"], usage, provider=settings.get("provider", "openai")
+            ))
+        elif unknown_cost_operations:
+            usage["estimated_cost_usd"] = None
+        usage["job_elapsed_seconds"] = time.perf_counter() - worker_started
+        usage["books_completed"] = len(results)
+        usage["provider"] = settings.get("provider", "openai")
+        return {
+            "results": results, "cancelled_details": cancelled_details,
+            "cancelled": abort is not None and abort.is_set(),
+            "cancelled_count": 0 if preflight_error else max(0, total - len(results)),
+            "usage": usage,
+            "model": settings["model"], "provider": settings.get("provider", "openai"),
+            "search_mode": settings.get("search_mode", "hosted"),
+            "preflight_error": preflight_error, "preflight_service": preflight_service,
+            "metrics_context": {key: settings.get(key) for key in (
+                "preset", "search", "reasoning", "front", "output_cap",
+                "evidence_urls", "provider", "search_mode",
+            )},
+            "batch_size": total,
+        }
+
     try:
+        needs_preflight = (
+            settings.get("provider") in ("ollama", "lmstudio")
+            or settings.get("search_mode") == "searxng"
+        )
+        if needs_preflight:
+            if notifications is not None:
+                notifications.put((0.01, "Checking required research services"))
+            if log is not None:
+                log("Checking required research services before reading EPUBs")
+            try:
+                preflight_research_services(
+                    provider, settings.get("provider", "openai"),
+                    settings.get("search_mode", "hosted"),
+                    cancelled=settings["cancellation_callback"],
+                )
+            except ProviderCancelled:
+                if log is not None:
+                    log("BiblioSleuth AI research cancelled during service checks")
+                return finish_payload()
+            except ServicePreflightError as exc:
+                if log is not None:
+                    log.error("Research did not start: %s" % exc)
+                return finish_payload(str(exc), exc.service)
+            if notifications is not None:
+                notifications.put((0.015, "Required research services are available"))
         for position, book in enumerate(jobs):
             if abort is not None and abort.is_set():
                 if log is not None:
@@ -326,22 +386,7 @@ def research_books(jobs, settings, log=None, abort=None, notifications=None):
                 notifications.put((float(position + 1) / total, "Research complete: %s" % book["title"]))
     finally:
         provider.clear_api_key()
-    if log is not None:
-        if unknown_cost_operations:
-            usage["estimated_cost_usd"] = None
-        log("Total usage: " + format_usage(
-            settings["model"], usage, provider=settings.get("provider", "openai")
-        ))
-    elif unknown_cost_operations:
-        usage["estimated_cost_usd"] = None
-    usage["job_elapsed_seconds"] = time.perf_counter() - worker_started
-    usage["books_completed"] = len(results)
-    usage["provider"] = settings.get("provider", "openai")
-    return {"results": results, "cancelled_details": cancelled_details,
-            "cancelled": abort is not None and abort.is_set(), "cancelled_count": max(0, total - len(results)), "usage": usage, "model": settings["model"],
-            "provider": settings.get("provider", "openai"), "search_mode": settings.get("search_mode", "hosted"),
-            "metrics_context": {key: settings.get(key) for key in ("preset", "search", "reasoning", "front", "output_cap", "evidence_urls", "provider", "search_mode")},
-            "batch_size": total}
+    return finish_payload()
 
 
 class BiblioSleuthAIAction(InterfaceAction):
@@ -710,6 +755,9 @@ class BiblioSleuthAIAction(InterfaceAction):
             return
         payload = job.result or {"results": [], "cancelled": False, "usage": {}, "model": "unknown"}
         self._record_payload_metrics(payload)
+        if payload.get("preflight_error"):
+            self._show_preflight_failure(payload)
+            return
         if not payload.get("results"):
             cancelled = int(payload.get("cancelled_count") or 0)
             message = (
@@ -732,6 +780,40 @@ class BiblioSleuthAIAction(InterfaceAction):
         self.pending_batches.append(payload); self._update_pending_icon(); self._show_pending_notification()
         self.gui.status_bar.show_message("BiblioSleuth AI research complete — click the notification or toolbar icon to review.", 10000)
 
+    def _show_preflight_failure(self, payload):
+        service = payload.get("preflight_service") or "required service"
+        labels = {"searxng": "SearXNG", "ollama": "Ollama", "lmstudio": "LM Studio"}
+        label = labels.get(service, service)
+        message = (
+            "%s\n\nNo EPUB was read and no AI research request was made. Start or "
+            "correct the required service, then initiate research again."
+        ) % payload["preflight_error"]
+        notice = CompletionDialog(
+            message, self.gui, "BiblioSleuth AI service unavailable",
+            "%s is unavailable" % label,
+        )
+
+        def open_configuration():
+            notice.accept()
+            self.configure()
+
+        def open_troubleshooting():
+            notice.accept()
+            self.show_documentation()
+
+        notice.add_action("Configure…", open_configuration)
+        notice.add_action("Troubleshooting", open_troubleshooting)
+        self.completion_notices.append(notice)
+        notice.finished.connect(
+            lambda *_args, item=notice: self.completion_notices.remove(item)
+            if item in self.completion_notices else None
+        )
+        notice.show()
+        self.gui.status_bar.show_message(
+            "BiblioSleuth AI research did not start because %s is unavailable." % label,
+            10000,
+        )
+
     def _record_payload_metrics(self, payload):
         with metrics_store.batch():
             self._record_payload_metrics_unbatched(payload)
@@ -739,6 +821,24 @@ class BiblioSleuthAIAction(InterfaceAction):
     def _record_payload_metrics_unbatched(self, payload):
         context = payload.get("metrics_context") or {}; batch_size = int(payload.get("batch_size") or len(payload.get("results", [])) or 1)
         diagnostic_failures = []; successful = 0
+        preflight_service = payload.get("preflight_service") or ""
+        preflight_category = (
+            "web_search" if preflight_service == "searxng" else "local_provider"
+        )
+        if payload.get("preflight_error"):
+            diagnostic_failures.append({
+                "category": preflight_category,
+                "stage": "service_preflight",
+                "message": "%s was unavailable during the preflight check" % (
+                    preflight_service or "A required research service"
+                ),
+                "traceback": "",
+            })
+            for _ in range(batch_size):
+                metrics_store.add(secrets.token_hex(32), build_lookup_record(
+                    payload, {"estimated_cost_usd": 0.0}, outcome="failed",
+                    failure_category=preflight_category, cache_hit=False,
+                ))
         for job, result, error, detail in payload.get("results", []):
             outcome = "failed" if error else ("cancelled" if payload.get("cancelled") and not result else "ready")
             record = build_lookup_record(
@@ -782,7 +882,8 @@ class BiblioSleuthAIAction(InterfaceAction):
             "provider": payload.get("provider", context.get("provider", "openai")),
             "search_provider": payload.get("search_mode", context.get("search_mode", "hosted")),
             "preset": context.get("preset", "unknown"),
-            "batch_size": batch_size, "successful_books": successful, "failed_books": len(diagnostic_failures),
+            "batch_size": batch_size, "successful_books": successful,
+            "failed_books": batch_size if payload.get("preflight_error") else len(diagnostic_failures),
             "cancelled_books": int(payload.get("cancelled_count") or 0),
             "usage": {key: usage.get(key) for key in (
                 "input_tokens", "cached_tokens", "output_tokens", "reasoning_tokens",

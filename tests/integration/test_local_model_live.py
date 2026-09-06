@@ -22,7 +22,7 @@ def test_real_local_model_openai_contract():
         PROVIDER, BASE_URL, MODEL, timeout=120, max_output_tokens=64
     )
 
-    models = provider.list_models()
+    models = provider.list_models(timeout=5)
     response = provider.structured_call(
         "Return the requested JSON object. Set ok to true.",
         "Return ok=true.",

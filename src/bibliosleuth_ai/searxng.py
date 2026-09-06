@@ -49,18 +49,18 @@ class SearXNGClient:
         self._opener = opener or build_opener(_NoRedirectHandler()).open
         self.last_search_calls = 0
 
-    def _open(self, request):
+    def _open(self, request, timeout=None):
         opener = getattr(self._opener, "open", self._opener)
-        return opener(request, timeout=self.timeout)
+        return opener(request, timeout=self.timeout if timeout is None else int(timeout))
 
-    def search(self, query):
+    def search(self, query, timeout=None):
         query = " ".join(str(query or "").split())[:MAX_QUERY_CHARS]
         if not query:
             raise SearXNGError("SearXNG search query is empty")
         url = self.base_url + "/search?" + urlencode({"q": query, "format": "json", "safesearch": 1})
         request = Request(url, headers={"Accept": "application/json"}, method="GET")
         try:
-            with self._open(request) as response:
+            with self._open(request, timeout=timeout) as response:
                 raw = response.read(MAX_SEARCH_RESPONSE_BYTES + 1)
         except HTTPError as exc:
             raise SearXNGError("SearXNG returned HTTP %s" % exc.code)
@@ -91,8 +91,8 @@ class SearXNGClient:
                 break
         return results
 
-    def test_connection(self):
-        self.search("BiblioSleuth AI connection test")
+    def test_connection(self, timeout=None):
+        self.search("BiblioSleuth AI connection test", timeout=timeout)
         return True
 
 

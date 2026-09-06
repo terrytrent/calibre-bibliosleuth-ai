@@ -6,6 +6,14 @@ then sends that bounded evidence to the selected AI provider. Web evidence comes
 from OpenAI or Claude hosted search, or from the user-managed SearXNG instance.
 Ollama and LM Studio always use SearXNG.
 
+Before EPUB processing begins, a background preflight gives required SearXNG,
+Ollama, and LM Studio services their own five-second checks. SearXNG readiness uses
+one safe JSON query. Local inference readiness lists loaded models without
+generating text and confirms the selected model is available. A failed check stops
+the job with an actionable non-modal notice instead of consuming the much longer
+research timeout. Provider-hosted OpenAI and Claude search skips this local-service
+preflight.
+
 OpenAI hosted research completes search and strict output in one Responses API
 request. Claude hosted research uses one cited search request followed by one or
 two strict-schema requests because Anthropic does not permit web-search citations and

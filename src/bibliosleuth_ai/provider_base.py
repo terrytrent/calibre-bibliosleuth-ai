@@ -17,6 +17,14 @@ class ProviderCancelled(ProviderError):
     pass
 
 
+class ServicePreflightError(ProviderError):
+    """A required research service was unavailable before book processing."""
+
+    def __init__(self, service, message):
+        super().__init__(message)
+        self.service = str(service or "service")
+
+
 UNSUPPORTED_GENERATION_SCHEMA_KEYWORDS = frozenset({
     "$schema", "maxLength", "minLength", "pattern", "format",
     "maximum", "minimum", "exclusiveMaximum", "exclusiveMinimum",

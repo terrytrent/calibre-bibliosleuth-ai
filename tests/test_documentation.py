@@ -2,6 +2,7 @@ import re
 from html.parser import HTMLParser
 from pathlib import Path
 
+from bibliosleuth_ai import BiblioSleuthAIPlugin
 from bibliosleuth_ai.constants import PLUGIN_VERSION
 
 
@@ -26,10 +27,15 @@ class _HTMLStructure(HTMLParser):
 
 def test_documented_versions_match_plugin():
     version = ".".join(map(str, PLUGIN_VERSION))
-    assert "**Version:** " + version in (ROOT / "README.md").read_text(encoding="utf-8")
+    assert BiblioSleuthAIPlugin.version == PLUGIN_VERSION
+    readme = (ROOT / "README.md").read_text(encoding="utf-8")
+    assert "**Version:** " + version in readme
+    assert "git tag -a v%s -m \"BiblioSleuth AI %s\"" % (version, version) in readme
     assert "Version: " + version in (ROOT / "src/bibliosleuth_ai/about.txt").read_text(encoding="utf-8")
     guide = (ROOT / "docs/user-guide.html").read_text(encoding="utf-8")
     assert "<b>Version:</b> " + version in guide
+    development = (ROOT / "docs/development.md").read_text(encoding="utf-8")
+    assert "such as `v%s`" % version in development
 
 
 def test_changelog_uses_keep_a_changelog_release_format():
@@ -42,6 +48,7 @@ def test_changelog_uses_keep_a_changelog_release_format():
     for category in ("### Added", "### Changed", "### Fixed"):
         assert category in changelog
     assert f"[{version}]: https://github.com/terrytrent/calibre-bibliosleuth-ai/compare/" in changelog
+    assert f"[Unreleased]: https://github.com/terrytrent/calibre-bibliosleuth-ai/compare/v{version}...HEAD" in changelog
 
 
 def test_user_guide_html_is_balanced_and_theme_aware():

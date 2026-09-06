@@ -4,8 +4,9 @@
 2. Configure OpenAI, Claude, Ollama, or LM Studio and select hosted search where
    offered or enter a tested SearXNG server.
 3. Click the main **BiblioSleuth AI** icon.
-4. Confirm the provider-aware preflight summary.
-5. Continue using calibre while research runs as a background job.
+4. Confirm the provider-aware batch-start summary.
+5. Continue using calibre while the background job checks required services and
+   runs the research.
 6. When the persistent completion notice appears, click **Review books**.
 7. Review and edit proposals, choose fields, and approve the book.
 

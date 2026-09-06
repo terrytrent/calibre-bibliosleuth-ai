@@ -15,6 +15,10 @@ Ollama defaults to `http://127.0.0.1:11434/v1`; LM Studio defaults to
 **Refresh Model Choices**, **Test Connection**, **Test Model Capabilities**, and
 **Test SearXNG** before the first lookup.
 
+Research also performs short background availability checks before reading an
+EPUB whenever SearXNG, Ollama, or LM Studio is required. These checks provide fast
+failure recovery but do not replace the explicit connection and capability tests.
+
 For LM Studio, note that `http://127.0.0.1:1234` is the server root but the plugin
 setting requires `http://127.0.0.1:1234/v1`. Use a non-thinking instruct model and
 keep LM Studio's Developer server running during research. Thinking variants that

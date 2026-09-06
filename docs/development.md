@@ -34,6 +34,8 @@ the Responses API, `anthropic_provider.py` uses the Messages API, and
 `local_provider.py` handles Ollama/LM Studio OpenAI-compatible chat completions.
 `searxng.py` is a bounded client for a separately operated JSON Search API. Cache
 identity includes AI provider, model, search provider, and SearXNG limits.
+The background job calls the provider-neutral service preflight in `providers.py`
+before EPUB extraction whenever SearXNG or a local inference server is required.
 
 Anthropic hosted research has a separate 6,000-token server-tool ceiling because
 intermediate search turns count against `max_tokens`; the configured preset cap
@@ -76,7 +78,7 @@ credential clearing behind the research boundary.
 ## Common commands
 
 `make test` runs the mocked, cross-platform suite. `make test-searxng` additionally
-verifies the client against a real SearXNG JSON endpoint. The integration target
+verifies the service preflight and client against a real SearXNG JSON endpoint. The integration target
 requires Docker, starts an official SearXNG image pinned by digest on a random
 loopback port, waits for readiness, runs the contract test, and removes both the
 container and temporary configuration even if the test fails. Linux CI runs this
@@ -124,7 +126,7 @@ independent of Calibre and Qt where practical so it remains directly testable.
 ## Publishing
 
 Merge the completed release commit to `main`, then push an annotated semantic tag
-such as `v1.1.1`. The version must match the plugin and documentation. The tagged
+such as `v1.1.2`. The version must match the plugin and documentation. The tagged
 release workflow verifies main ancestry, runs the complete test matrix, Bandit,
 CodeQL, Trivy, dependency auditing, and the blocking Ruff correctness gate, builds
 and re-verifies the package, and creates the GitHub Release with

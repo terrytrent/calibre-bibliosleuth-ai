@@ -27,6 +27,11 @@ def _start_method():
     return next(node for node in action_class.body if isinstance(node, ast.FunctionDef) and node.name == "start")
 
 
+def _research_function():
+    tree = ast.parse(ACTION.read_text(encoding="utf-8"))
+    return next(node for node in tree.body if isinstance(node, ast.FunctionDef) and node.name == "research_books")
+
+
 def test_preflight_does_not_hash_or_read_epub_contents_on_gui_thread():
     calls = {
         node.func.id
@@ -40,3 +45,23 @@ def test_preflight_does_not_hash_or_read_epub_contents_on_gui_thread():
 def test_preflight_tells_users_cache_detection_happens_in_background():
     source = ACTION.read_text(encoding="utf-8")
     assert 'cache_text = "Bypassed (fresh research requested)" if force_refresh else "Checked in the background job"' in source
+
+
+def test_service_preflight_runs_in_background_before_epub_extraction():
+    calls = {
+        node.func.id: node.lineno
+        for node in ast.walk(_research_function())
+        if isinstance(node, ast.Call) and isinstance(node.func, ast.Name)
+        and node.func.id in ("preflight_research_services", "extract_epub")
+    }
+    assert calls["preflight_research_services"] < calls["extract_epub"]
+
+
+def test_service_preflight_failure_uses_a_non_modal_actionable_notice():
+    source = ACTION.read_text(encoding="utf-8")
+    assert "def _show_preflight_failure" in source
+    assert '"cancelled_count": 0 if preflight_error' in source
+    assert 'failure_category=preflight_category' in source
+    assert 'notice.add_action("Configure…"' in source
+    assert 'notice.add_action("Troubleshooting"' in source
+    assert "notice.show()" in source

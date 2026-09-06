@@ -7,6 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.1.2] - 2026-09-05
+
+### Fixed
+
+- Fixed slow, opaque research failures when a required SearXNG, Ollama, or LM
+  Studio service is unavailable. A short background preflight now runs before
+  EPUB processing and stops with an actionable non-modal notice when a service is
+  down or the selected local model is not loaded.
+
 ## [1.1.1] - 2026-09-05
 
 ### Fixed
@@ -257,7 +266,8 @@ Initial stable release of BiblioSleuth AI for Calibre.
   Bandit, dependency auditing, CodeQL, Trivy, Qlty/Ruff analysis, Dependabot, and
   least-privilege tagged GitHub release automation for Windows, macOS, and Linux.
 
-[Unreleased]: https://github.com/terrytrent/calibre-bibliosleuth-ai/compare/v1.1.1...HEAD
+[Unreleased]: https://github.com/terrytrent/calibre-bibliosleuth-ai/compare/v1.1.2...HEAD
+[1.1.2]: https://github.com/terrytrent/calibre-bibliosleuth-ai/compare/v1.1.1...v1.1.2
 [1.1.1]: https://github.com/terrytrent/calibre-bibliosleuth-ai/compare/v1.1.0...v1.1.1
 [1.1.0]: https://github.com/terrytrent/calibre-bibliosleuth-ai/compare/v1.0.0...v1.1.0
 [1.0.0]: https://github.com/terrytrent/calibre-bibliosleuth-ai/releases/tag/v1.0.0

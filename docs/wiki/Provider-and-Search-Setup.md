@@ -7,10 +7,13 @@ use hosted search or SearXNG. Ollama and LM Studio require SearXNG.
 | --- | --- | --- | --- |
 | OpenAI | OpenAI API key | OpenAI hosted or SearXNG | `gpt-5.6-luna` |
 | Claude | Anthropic API key | Claude hosted or SearXNG | `claude-sonnet-5` |
-
-Identity-linked or multi-workspace Anthropic keys also require a workspace ID. Copy the `wrkspc_…` value from Claude Console → Settings → Workspaces into **Claude workspace ID**, or set `ANTHROPIC_WORKSPACE_ID`. Keys scoped to one workspace do not require it.
 | Ollama | Normally none | SearXNG | `http://127.0.0.1:11434/v1` |
 | LM Studio | Optional local token | SearXNG | `http://127.0.0.1:1234/v1` |
+
+Identity-linked or multi-workspace Anthropic keys also require a workspace ID.
+Copy the `wrkspc_…` value from Claude Console → Settings → Workspaces into
+**Claude workspace ID**, or set `ANTHROPIC_WORKSPACE_ID`. Keys scoped to one
+workspace do not require it.
 
 Credentials are stored under separate provider identities. An optional local
 token can never fall back to, overwrite, or be substituted for a hosted-provider
@@ -48,7 +51,8 @@ key.
 2. Download an instruct model with `ollama pull <model>`.
 3. Confirm the OpenAI-compatible API is available at
    `http://127.0.0.1:11434/v1`.
-4. Select **Ollama**, configure SearXNG, refresh models, and run both tests.
+4. Select **Ollama**, configure SearXNG, refresh models, and run **Test
+   Connection**, **Test Model Capabilities**, and **Test SearXNG**.
 
 A connection test proves reachability, not reliable schema generation. Very small
 or short-context models may connect successfully but fail research.
@@ -144,5 +148,13 @@ the full configuration screen before research so these steps can be completed.
 - **Test Connection** succeeds.
 - **Test Model Capabilities** confirms structured output and the selected search.
 - **Test SearXNG** succeeds when SearXNG is selected.
-- The preflight dialog shows the intended AI provider, search path, model, and
+- The batch-start summary shows the intended AI provider, search path, model, and
   cost guidance before starting a batch.
+
+At the start of each applicable background research job, BiblioSleuth AI repeats a
+short readiness check before reading EPUBs. SearXNG receives one fixed,
+non-bibliographic JSON query;
+Ollama and LM Studio expose their loaded-model list and must include the selected
+model. Each service receives its own five-second limit, independent of the longer
+model timeout. This is a reachability guard, not a replacement for the explicit
+structured-output capability test.

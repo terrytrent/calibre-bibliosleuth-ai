@@ -9,8 +9,13 @@ from .constants import DEFAULT_MODEL
 from .local_provider import LocalProvider
 from .model_ids import is_anthropic_research_model, is_model_id
 from .openai_provider import OpenAIProvider
-from .provider_base import ProviderError
+from .provider_base import (
+    ProviderError, ServicePreflightError, ensure_not_cancelled,
+)
 from .searxng import SearXNGClient
+
+
+SERVICE_PREFLIGHT_TIMEOUT_SECONDS = 5
 
 
 @dataclass(frozen=True)
@@ -97,6 +102,62 @@ def provider_spec(provider_id):
 def effective_reasoning(provider_id, configured):
     """Return only reasoning effort that the selected integration can control."""
     return str(configured or "none") if provider_spec(provider_id).reasoning else "none"
+
+
+def _preflight_detail(error):
+    return " ".join(str(error or "").split())[:300] or "connection failed"
+
+
+def preflight_research_services(provider, provider_id, search_mode,
+                                timeout=SERVICE_PREFLIGHT_TIMEOUT_SECONDS,
+                                cancelled=None):
+    """Fail quickly when application-managed research services are unavailable."""
+    spec = provider_spec(provider_id)
+    timeout = max(1, min(10, int(timeout)))
+    uses_searxng = not spec.hosted_search or search_mode == "searxng"
+    ensure_not_cancelled(cancelled)
+    if uses_searxng:
+        search = getattr(provider, "searxng_client", None)
+        if search is None:
+            raise ServicePreflightError(
+                "searxng",
+                "Research could not start because SearXNG is not configured. "
+                "Enter its server address in General settings, start SearXNG, and retry.",
+            )
+        try:
+            search.test_connection(timeout=timeout)
+        except Exception as exc:
+            raise ServicePreflightError(
+                "searxng",
+                "Research could not start because SearXNG is unavailable. Start the "
+                "configured SearXNG service, confirm that JSON search is enabled, and "
+                "retry. Details: %s" % _preflight_detail(exc),
+            ) from exc
+        ensure_not_cancelled(cancelled)
+    if provider_id in ("ollama", "lmstudio"):
+        label = spec.label
+        try:
+            available = provider.list_models(timeout=timeout)
+        except Exception as exc:
+            instruction = (
+                "Start Ollama and confirm its Local API endpoint in General settings"
+                if provider_id == "ollama" else
+                "Start LM Studio's Developer server and confirm its Local API endpoint in General settings"
+            )
+            raise ServicePreflightError(
+                provider_id,
+                "Research could not start because %s is unavailable. %s, then retry. "
+                "Details: %s" % (label, instruction, _preflight_detail(exc)),
+            ) from exc
+        ensure_not_cancelled(cancelled)
+        if provider.model not in available:
+            raise ServicePreflightError(
+                provider_id,
+                "Research could not start because %s is reachable but the selected "
+                "model '%s' is not available. Load the model, refresh model choices in "
+                "General settings, and retry." % (label, provider.model),
+            )
+    return True
 
 
 def sanitize_model_id(value):

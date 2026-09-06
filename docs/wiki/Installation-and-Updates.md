@@ -8,6 +8,11 @@
 - Hosted search where supported, or a separately running SearXNG service
 - Internet access while researching metadata
 
+BiblioSleuth AI does not install or start the external providers. Follow
+[Provider and search setup](Provider-and-Search-Setup.md) before the first
+lookup; applicable research jobs then perform short automatic availability
+checks.
+
 ## Install
 
 1. Download `BiblioSleuth-AI.zip` from the [latest release](https://github.com/terrytrent/calibre-bibliosleuth-ai/releases/latest).

@@ -71,6 +71,6 @@ The presets also vary front-matter evidence size, search context, reasoning effo
 - Research only the fields you need.
 - Keep the session cache enabled and use **Research fresh** only when necessary.
 - Avoid repeatedly validating custom prompts; validation and repair use billable model calls.
-- Use batches deliberately and inspect the preflight estimate.
+- Use batches deliberately and inspect the batch-start estimate.
 
 Automated tests mock every AI and search provider and do not incur API charges.

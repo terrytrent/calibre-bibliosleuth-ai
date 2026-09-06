@@ -33,10 +33,17 @@ def test_search_is_bounded_and_drops_unsafe_result_urls():
 
 
 def test_empty_valid_search_response_is_a_successful_connection():
+    captured = {}
+
+    def opener(request, timeout):
+        captured["timeout"] = timeout
+        return Response(b'{"results":[]}')
+
     client = SearXNGClient(
-        "http://localhost:8080", opener=lambda request, timeout: Response(b'{"results":[]}')
+        "http://localhost:8080", timeout=300, opener=opener,
     )
-    assert client.test_connection() is True
+    assert client.test_connection(timeout=5) is True
+    assert captured["timeout"] == 5
 
 
 def test_queries_prioritize_identifier_then_title_author():
