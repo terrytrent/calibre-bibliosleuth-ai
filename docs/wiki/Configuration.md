@@ -77,3 +77,16 @@ An empty override uses the bundled prompt. Use **View Default**, **Preview Effec
 ## Privacy and security
 
 This tab controls optional local statistics, diagnostic behavior, and related privacy settings. See [Privacy and security](Privacy-and-Security.md) before enabling verbose diagnostics.
+
+## Help and updates
+
+**Automatically check daily for updates** is enabled by default. The check runs
+in the background after the plugin's first normal use in a Calibre session and
+never more than once every 24 hours. It requests only the fixed public release
+manifest and sends no library, book, provider, credential, model, hardware, or
+installation-identifying data. Disable the checkbox to turn off automatic checks;
+**Check for Updates…** in the toolbar menu remains available.
+
+An update notice can be postponed with **Remind me tomorrow** or suppressed with
+**Skip this version**. It also shows a bounded plain-text summary of the release.
+Skipping one release does not suppress a later release.

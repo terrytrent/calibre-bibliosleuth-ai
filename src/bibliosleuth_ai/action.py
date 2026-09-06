@@ -13,8 +13,8 @@ from calibre.utils.date import parse_date
 from calibre.constants import __version__ as CALIBRE_VERSION
 from qt.core import (
     QApplication, QCheckBox, QColor, QDialog, QDialogButtonBox, QHBoxLayout, QIcon, QLabel,
-    QMenu, QMessageBox, QPainter, QPlainTextEdit, QPushButton, QToolButton,
-    QVBoxLayout, Qt, QTimer,
+    QDesktopServices, QMenu, QMessageBox, QPainter, QPlainTextEdit, QPushButton,
+    QToolButton, QUrl, QVBoxLayout, Qt, QTimer,
 )
 
 from .epub import epub_structural_diagnostics, extract_epub
@@ -37,6 +37,11 @@ from .metrics import build_lookup_record, summarize
 from .usage import estimate_cost_usd, format_usage
 from .searxng import SearXNGError
 from .constants import FIELD_NAMES
+from .update_check import (
+    UPDATE_REMINDER_SECONDS, automatic_check_due, changelog_dict,
+    known_update_available, notification_due, parse_version, parse_changelog,
+    release_url, update_check_job,
+)
 
 
 UNDO_STACK = []
@@ -122,6 +127,74 @@ class CompletionDialog(QDialog):
         button = self.buttons.addButton(label, QDialogButtonBox.ButtonRole.ActionRole)
         button.clicked.connect(callback)
         return button
+
+
+class UpdateAvailableNotification(QDialog):
+    """Non-modal update notice with explicit per-version deferral choices."""
+    def __init__(self, action):
+        super().__init__(action.gui)
+        self.action = action
+        self.version = ""
+        self.setWindowTitle("BiblioSleuth AI update available")
+        self.setModal(False)
+        self.setWindowFlag(Qt.WindowType.Tool, True)
+        self.resize(720, 420)
+        self.setMinimumSize(560, 300)
+        layout = QVBoxLayout(self)
+        self.message = QPlainTextEdit()
+        self.message.setReadOnly(True)
+        self.message.setAccessibleName("BiblioSleuth AI update highlights")
+        layout.addWidget(self.message)
+        buttons = QHBoxLayout()
+        view = QPushButton("View release…")
+        view.setDefault(True)
+        view.clicked.connect(self._view)
+        tomorrow = QPushButton("Remind me tomorrow")
+        tomorrow.clicked.connect(self._tomorrow)
+        skip = QPushButton("Skip this version")
+        skip.clicked.connect(self._skip)
+        buttons.addWidget(view)
+        buttons.addWidget(tomorrow)
+        buttons.addWidget(skip)
+        layout.addLayout(buttons)
+
+    def show_version(self, version, changelog=None):
+        self.version = version
+        lines = [
+            "BiblioSleuth AI %s is available. You can view the release on GitHub, "
+            "be reminded tomorrow, or suppress notifications for this version." % version
+        ]
+        if changelog:
+            lines.extend(["", changelog["summary"], "", "What's new:"])
+            lines.extend(
+                "• %s: %s" % (item["category"], item["text"])
+                for item in changelog["items"]
+            )
+        lines.extend([
+            "", "BiblioSleuth AI never downloads or installs updates automatically."
+        ])
+        self.message.setPlainText("\n".join(lines))
+        self.show()
+        self.raise_()
+        self.activateWindow()
+
+    def _view(self):
+        if self.action.open_update_release(self.version):
+            self.hide()
+
+    def _tomorrow(self):
+        self.action.remind_update_tomorrow(self.version)
+        self.hide()
+
+    def _skip(self):
+        self.action.skip_update_version(self.version)
+        self.hide()
+
+    def closeEvent(self, event):
+        if self.version:
+            self.action.remind_update_tomorrow(self.version)
+        event.ignore()
+        self.hide()
 
 
 class SpecificFieldsDialog(QDialog):
@@ -400,6 +473,10 @@ class BiblioSleuthAIAction(InterfaceAction):
         self.pending_batches = []
         self.completion_notices = []
         self.pending_notification = PendingResultsNotification(self)
+        self.update_notification = UpdateAvailableNotification(self)
+        self._update_check_active = False
+        self._automatic_update_check_started = False
+        self._update_check_manual = False
         self.menu = QMenu(self.gui)
         self.configure_action = self.menu.addAction("Configure BiblioSleuth AI")
         self.configure_action.triggered.connect(self.configure)
@@ -407,6 +484,11 @@ class BiblioSleuthAIAction(InterfaceAction):
         self.about_action.triggered.connect(self.show_about)
         self.documentation_action = self.menu.addAction("Documentation")
         self.documentation_action.triggered.connect(self.show_documentation)
+        self.check_updates_action = self.menu.addAction("Check for Updates…")
+        self.check_updates_action.triggered.connect(self.check_for_updates)
+        self.update_available_action = self.menu.addAction("Update available")
+        self.update_available_action.setVisible(False)
+        self.update_available_action.triggered.connect(self.show_known_update)
         self.setup_action = self.menu.addAction("Run Setup Wizard")
         self.setup_action.triggered.connect(self.run_setup_wizard)
         self.menu.addSeparator()
@@ -431,12 +513,17 @@ class BiblioSleuthAIAction(InterfaceAction):
         # ThreadedJob invokes its callback from a worker thread. FunctionDispatcher
         # queues it onto Calibre's GUI thread before any Qt widgets are created.
         self.job_finished_dispatcher = FunctionDispatcher(self._job_finished, parent=self.gui)
+        self.update_check_finished_dispatcher = FunctionDispatcher(
+            self._update_check_finished, parent=self.gui
+        )
+        self._restore_known_update_action()
 
     def activate(self, *args):
         if self.pending_batches:
             self.review_pending_results()
         else:
             self.start()
+        self._schedule_automatic_update_check()
 
     def start_specific_fields(self, *args):
         dialog = SpecificFieldsDialog(self.gui)
@@ -600,6 +687,181 @@ class BiblioSleuthAIAction(InterfaceAction):
             "<p>Hosted AI and web-search usage may incur charges.</p>" % version,
         )
 
+    def _installed_version(self):
+        return ".".join(map(str, self.interface_action_base_plugin.version))
+
+    def _restore_known_update_action(self):
+        version = prefs.get("latest_known_version", "")
+        available = known_update_available(
+            prefs, self._installed_version(), CALIBRE_VERSION
+        )
+        if available:
+            self.update_available_action.setText("Update available: %s…" % version)
+        self.update_available_action.setVisible(available)
+
+    def _maybe_check_for_updates(self):
+        version = prefs.get("latest_known_version", "")
+        remembered_update = (
+            known_update_available(prefs, self._installed_version(), CALIBRE_VERSION)
+            and notification_due(prefs, version)
+        )
+        if remembered_update:
+            self.update_notification.show_version(
+                version, self._stored_update_changelog()
+            )
+        if automatic_check_due(prefs):
+            self._start_update_check(manual=False)
+
+    def _schedule_automatic_update_check(self):
+        if not self._automatic_update_check_started:
+            self._automatic_update_check_started = True
+            QTimer.singleShot(0, self._maybe_check_for_updates)
+
+    def check_for_updates(self, *args):
+        self._start_update_check(manual=True)
+
+    def _start_update_check(self, manual):
+        if self._update_check_active:
+            if manual:
+                self.gui.status_bar.show_message(
+                    "A BiblioSleuth AI update check is already running.", 5000
+                )
+            return
+        self._update_check_active = True
+        self._update_check_manual = bool(manual)
+        prefs["last_update_attempt"] = time.time()
+        job = ThreadedJob(
+            "BiblioSleuth AI update check",
+            "Check for a newer stable BiblioSleuth AI release",
+            update_check_job,
+            (self._installed_version(), CALIBRE_VERSION),
+            {},
+            self.update_check_finished_dispatcher,
+            killable=False,
+        )
+        self.gui.job_manager.run_threaded_job(job)
+        if manual:
+            self.gui.status_bar.show_message(
+                "Checking for a BiblioSleuth AI update in the background…", 5000
+            )
+
+    def _update_check_finished(self, job):
+        manual = self._update_check_manual
+        self._update_check_active = False
+        self._update_check_manual = False
+        payload = {} if job.failed else (job.result or {})
+        if payload.get("status") == "cancelled":
+            return
+        if payload.get("status") == "error" or job.failed:
+            if manual:
+                error_dialog(
+                    self.gui,
+                    "Update check unavailable",
+                    payload.get("error") or "The update check could not be completed.",
+                    show=True,
+                )
+            return
+        manifest = payload.get("manifest") or {}
+        version = manifest.get("version", "")
+        try:
+            parse_version(version)
+        except Exception:
+            if manual:
+                error_dialog(
+                    self.gui, "Update check unavailable",
+                    "The update service returned an invalid response.", show=True,
+                )
+            return
+        prefs["last_update_success"] = time.time()
+        prefs["latest_known_version"] = version
+        prefs["latest_known_minimum_calibre"] = manifest.get("minimum_calibre", "")
+        changelog = manifest.get("changelog")
+        try:
+            parse_changelog(changelog)
+        except Exception:
+            changelog = None
+        prefs["latest_known_changelog"] = changelog or {}
+        status = payload.get("status")
+        if status == "available":
+            self.update_available_action.setText("Update available: %s…" % version)
+            self.update_available_action.setVisible(True)
+            if manual or notification_due(prefs, version):
+                self.update_notification.show_version(version, changelog)
+            return
+        self.update_available_action.setVisible(False)
+        if not manual:
+            return
+        if status == "incompatible":
+            info_dialog(
+                self.gui, "BiblioSleuth AI update",
+                "BiblioSleuth AI %s is available, but it requires Calibre %s or newer."
+                % (version, manifest.get("minimum_calibre", "a newer version")),
+                show=True,
+            )
+        else:
+            info_dialog(
+                self.gui, "BiblioSleuth AI is up to date",
+                "You are using the newest compatible BiblioSleuth AI release.", show=True,
+            )
+
+    def show_known_update(self, *args):
+        version = prefs.get("latest_known_version", "")
+        if not known_update_available(
+            prefs, self._installed_version(), CALIBRE_VERSION
+        ):
+            self.update_available_action.setVisible(False)
+            return
+        self.update_notification.show_version(version, self._stored_update_changelog())
+
+    def _stored_update_changelog(self):
+        value = prefs.get("latest_known_changelog", {})
+        try:
+            parsed = parse_changelog(value)
+        except Exception:
+            return None
+        return changelog_dict(parsed)
+
+    def remind_update_tomorrow(self, version):
+        parse_version(version)
+        prefs["update_remind_version"] = version
+        prefs["update_remind_after"] = time.time() + UPDATE_REMINDER_SECONDS
+        if prefs.get("skipped_update_version") == version:
+            prefs["skipped_update_version"] = ""
+        self.gui.status_bar.show_message(
+            "BiblioSleuth AI will remind you about %s tomorrow." % version, 5000
+        )
+
+    def skip_update_version(self, version):
+        parse_version(version)
+        prefs["skipped_update_version"] = version
+        prefs["update_remind_version"] = ""
+        prefs["update_remind_after"] = 0.0
+        self.gui.status_bar.show_message(
+            "Update notifications for BiblioSleuth AI %s are hidden." % version, 5000
+        )
+
+    def open_update_release(self, version):
+        try:
+            url = release_url(version)
+        except Exception:
+            return False
+        message = (
+            "Open the BiblioSleuth AI %s release page on GitHub?\n\n"
+            "The plugin will not download or install anything automatically." % version
+        )
+        if QMessageBox.question(
+            self.gui, "Open release page?", message
+        ) != QMessageBox.StandardButton.Yes:
+            return False
+        if not QDesktopServices.openUrl(QUrl(url)):
+            error_dialog(
+                self.gui, "Could not open release page",
+                "Calibre could not open the release page in your browser.", show=True,
+            )
+            return False
+        self.skip_update_version(version)
+        return True
+
     def clear_lookup_cache(self, *args):
         count = SESSION_LOOKUP_CACHE.clear()
         info_dialog(self.gui, "BiblioSleuth AI", "Cleared %d cached lookup(s)." % count, show=True)
@@ -729,6 +991,7 @@ class BiblioSleuthAIAction(InterfaceAction):
             killable=True,
         )
         self.gui.job_manager.run_threaded_job(job)
+        self._schedule_automatic_update_check()
         self.gui.status_bar.show_message(
             "BiblioSleuth AI research started. Monitor it in the Jobs panel.", 5000
         )

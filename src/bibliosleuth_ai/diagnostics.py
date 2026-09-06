@@ -35,6 +35,9 @@ def diagnostic_report(preferences, plugin_version, cache_entries=0, statistics_e
             "enabled" if preferences["statistics_enabled"] else "disabled", statistics_entries,
             preferences["statistics_retention_days"], preferences["statistics_max_records"],
         ),
+        "Automatic update checks: %s" % (
+            "enabled" if preferences.get("automatic_update_checks", True) else "disabled"
+        ),
         "API key: [REDACTED; presence not reported]",
     ]
     return "\n".join(lines)

@@ -25,7 +25,26 @@ Do not extract the plugin ZIP before installing it.
 
 ## Update
 
-Install the newer ZIP over the existing plugin and restart calibre. Your accepted settings are retained unless a release note explicitly says otherwise.
+BiblioSleuth AI checks a small public manifest in the background after its first
+normal use in a Calibre session, no more than once every 24 hours. Disable this
+under **Configure BiblioSleuth AI → Help**, or choose **Check for Updates…** from
+the toolbar menu for an immediate manual check.
+
+When a newer compatible stable version is available, a non-modal notice offers
+**View release…**, **Remind me tomorrow**, and **Skip this version**.
+The notice includes a concise summary and categorized highlights from that
+release. Closing the notice also defers it until tomorrow. Skipping suppresses
+notices only for that version; a later release can notify again. The update
+remains available from the toolbar menu even when its notice is deferred.
+Viewing a release opens its derived GitHub page only after confirmation.
+BiblioSleuth AI never downloads or installs an update automatically.
+
+Install the newer ZIP over the existing plugin and restart calibre. Your accepted
+settings are retained unless a release note explicitly says otherwise.
+
+The check sends no book, library, provider, credential, model, hardware, or
+installation-identifying data. Ordinary automatic-check failures are silent and
+wait until the next daily opportunity; a manual check reports a concise error.
 
 ## Uninstall
 
