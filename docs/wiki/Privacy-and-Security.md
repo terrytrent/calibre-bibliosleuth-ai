@@ -29,6 +29,11 @@ When SearXNG is selected, bounded bibliographic queries go to that service and
 its configured upstream engines. Results are untrusted evidence and are not
 retained in metrics or diagnostics.
 
+Before an applicable research job reads an EPUB, it sends SearXNG one fixed,
+non-bibliographic readiness query. Ollama and LM Studio checks request only the
+local server's model list. Neither readiness check includes EPUB or library
+metadata or generates model output.
+
 ## Reporting vulnerabilities
 
 Do not disclose secrets or unpublished vulnerabilities in a public issue. Follow the repository's [security policy](https://github.com/terrytrent/calibre-bibliosleuth-ai/blob/main/SECURITY.md).

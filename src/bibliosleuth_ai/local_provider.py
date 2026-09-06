@@ -155,10 +155,10 @@ class LocalProvider(MetadataResearchProvider):
             "usage": dict(self.last_usage),
         }
 
-    def list_models(self):
+    def list_models(self, timeout=None):
         result = self._transport.request(
             self.base_url + "/models", headers=self._headers, limit=2 * 1024 * 1024,
-            secrets=(self.api_key,),
+            secrets=(self.api_key,), timeout=timeout,
         )
         if not isinstance(result, dict) or not isinstance(result.get("data"), list):
             raise ProviderError("%s returned an invalid model list" % self.provider_id)

@@ -15,6 +15,10 @@ Filter or group by AI provider and search provider to compare OpenAI, Claude,
 Ollama, and LM Studio. Hosted-search and SearXNG calls are counted separately.
 Local inference is labeled as having no reported API cost; missing provider
 measurements remain unavailable rather than being presented as zero.
+An unavailable SearXNG, Ollama, or LM Studio service records one failed,
+known-zero-provider-cost lookup per selected book, with a generic web-search or
+local-provider category. The fixed readiness query is not counted as a per-book
+research search and no bibliographic value or exact connection error is retained.
 
 ## Collect logs
 

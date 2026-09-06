@@ -162,3 +162,22 @@ def test_lmstudio_receives_compact_generation_schema():
     assert provider.structured_call("Return JSON", "test", schema, "test") == {"ok": True}
     sent = captured["response_format"]["json_schema"]["schema"]
     assert sent["properties"]["ok"] == {"type": "boolean"}
+
+
+def test_local_model_listing_can_override_a_long_research_timeout():
+    captured = {}
+
+    def opener(request, timeout):
+        captured["url"] = request.full_url
+        captured["timeout"] = timeout
+        return Response(b'{"data":[{"id":"qwen"}]}')
+
+    provider = LocalProvider(
+        "lmstudio", "http://127.0.0.1:1234/v1", "qwen",
+        timeout=300, opener=opener,
+    )
+    assert provider.list_models(timeout=5) == ["qwen"]
+    assert captured == {
+        "url": "http://127.0.0.1:1234/v1/models",
+        "timeout": 5,
+    }

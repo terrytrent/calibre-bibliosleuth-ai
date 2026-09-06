@@ -36,6 +36,10 @@ project, so no fixed response-time guarantee is made.
   statistics, and diagnostic bundles.
 - Selecting SearXNG discloses queries to that instance and its configured upstream
   engines. Local model inference does not make web search offline.
+- An applicable research job first sends a fixed, non-bibliographic readiness
+  query to SearXNG. Ollama and LM Studio readiness checks request only the local
+  server's model list; neither check includes EPUB or library metadata or
+  generates model output.
 - BiblioSleuth AI does not install, launch, administer, or expose SearXNG and does
   not run an MCP or other network server inside Calibre.
 

@@ -49,18 +49,18 @@ class JSONTransport:
         self.timeout = int(timeout)
         self.opener = opener or build_opener(NoRedirectHandler()).open
 
-    def open(self, request):
+    def open(self, request, timeout=None):
         opener = getattr(self.opener, "open", self.opener)
-        return opener(request, timeout=self.timeout)
+        return opener(request, timeout=self.timeout if timeout is None else int(timeout))
 
     def request(self, url, method="GET", payload=None, headers=None, limit=MAX_RESPONSE_BYTES,
-                secrets=()):
+                secrets=(), timeout=None):
         data = None
         if payload is not None:
             data = json.dumps(payload, separators=(",", ":"), ensure_ascii=False).encode("utf-8")
         request = Request(url, data=data, headers=headers or {}, method=method)
         try:
-            with self.open(request) as response:
+            with self.open(request, timeout=timeout) as response:
                 result = json.loads(read_response(response, limit, self.label).decode("utf-8"))
         except HTTPError as exc:
             if 300 <= exc.code < 400:

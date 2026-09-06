@@ -21,6 +21,20 @@ Confirm the service is running, JSON response format is enabled, and
 works only on loopback by default. Upstream engines can temporarily throttle or
 challenge a self-hosted instance.
 
+The same readiness check runs automatically in the background when research starts.
+If SearXNG is stopped, the job exits before reading an EPUB and shows a non-modal
+notice with Configure and Troubleshooting actions. Start the configured service and
+initiate research again. The readiness query has a five-second limit rather than
+the longer model-research timeout.
+
+## Research says Ollama or LM Studio is unavailable
+
+Start Ollama or LM Studio's Developer server and verify the Local API endpoint in
+General settings. If the server is reachable but the selected model is missing,
+load that model and use **Refresh Model Choices** before retrying. The automatic
+preflight only lists models; it does not generate text and does not replace **Test
+Model Capabilities**.
+
 ## A local model connects but research fails
 
 Connection does not prove structured-output quality. Load a schema-capable instruct

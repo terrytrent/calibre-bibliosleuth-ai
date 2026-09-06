@@ -20,6 +20,13 @@ Yes. Run SearXNG separately and select it as the web-research provider. SearXNG
 has no per-query API fee, though it uses local resources, contacts configured
 upstream search engines, and its evidence still consumes AI input tokens.
 
+## What happens if I forget to start SearXNG, Ollama, or LM Studio?
+
+When one of those services is required, the background job gives each service a
+short availability check before reading any EPUB. Research stops with Configure
+and Troubleshooting actions if SearXNG is unreachable, a local server is stopped,
+or the selected local model is not loaded. No AI research request is made.
+
 ## Can I research only descriptions or authors?
 
 Yes. Use the specific-field action in the toolbar dropdown. Series selection automatically includes series index.

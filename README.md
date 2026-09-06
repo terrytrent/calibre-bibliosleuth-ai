@@ -19,7 +19,7 @@
 [![Platforms](https://img.shields.io/badge/platforms-Windows%20%7C%20macOS%20%7C%20Linux-lightgrey.svg)](#install)
 
 - **Author:** Terry Trent
-- **Version:** 1.1.1
+- **Version:** 1.1.2
 - **License:** MIT
 - **Platforms:** Windows, macOS, and Linux
 - **Minimum Calibre version:** 7.0.0
@@ -36,7 +36,7 @@ review opens only when the user requests it.
 High- and medium-confidence proposals are selected by default. Low-confidence
 proposals remain visible but must be selected manually.
 
-BiblioSleuth AI includes guided first-run setup, tabbed settings, batch preflight,
+BiblioSleuth AI includes guided first-run setup, tabbed settings, a batch-start summary,
 clearer diffs and confidence badges, rich description and tag editors, source
 labels, keyboard shortcuts, navigable batch review, final confirmation, session
 undo, cache provenance, model capability testing, redacted diagnostics, and
@@ -268,6 +268,17 @@ calls the SearXNG JSON API, removes unsafe result URLs, limits snippets and resu
 counts, marks all returned content as untrusted evidence, and supplies it to the
 selected AI. No MCP package is required.
 
+Whenever SearXNG is required, each research job first gives it a five-second
+background readiness check using one safe JSON search. Ollama and LM Studio jobs
+also check their model-list endpoint with a separate five-second limit and confirm
+that the selected model is loaded. These checks happen before BiblioSleuth AI reads
+an EPUB and do not generate model output or incur an AI-provider charge. If a
+service is unavailable, research stops with a non-modal explanation and direct
+Configure and Troubleshooting actions instead of waiting for the longer research
+timeout. Provider-hosted OpenAI and Claude search does not use this local-service
+preflight. The fixed readiness query is excluded from per-book search usage;
+preflight failures are recorded as known-zero provider cost.
+
 A successfully parsed SearXNG JSON response is considered ready even when that
 particular test query returns no matches. Cancelling a job stops additional
 SearXNG queries and prevents a model request from starting when possible; an
@@ -360,7 +371,7 @@ long descriptions or tag lists. Exact-edition identification and web research ar
 still performed, so input tokens, search calls, elapsed time, and cost do not
 necessarily fall in direct proportion to the number of selected fields.
 
-Batch preflight shows eligible EPUBs, skipped selections, preset, cache behavior,
+The batch-start summary shows eligible EPUBs, skipped selections, preset, cache behavior,
 and a rough cost range. It never reads or fingerprints complete EPUB files on the
 GUI thread; fingerprinting and exact cache detection occur in the cancellable
 background job with progress reporting. Review uses explicit Previous, Skip This Book, and
@@ -585,8 +596,8 @@ and embedded version matches. Then push an annotated semantic version tag:
 ```sh
 git switch main
 git pull --ff-only
-git tag -a v1.1.1 -m "BiblioSleuth AI 1.1.1"
-git push bibliosleuth v1.1.1
+git tag -a v1.1.2 -m "BiblioSleuth AI 1.1.2"
+git push bibliosleuth v1.1.2
 ```
 
 The workflow refuses non-`vMAJOR.MINOR.PATCH` tags, tags whose commit is not on
