@@ -209,6 +209,17 @@ class ConfigWidget(QWidget):
             "API keys are stored in the operating system credential vault when available, never in Calibre's JSON preferences."
         ); self._constrain_wrapped_label(billing); privacy_layout.addWidget(billing); privacy_layout.addStretch(1)
 
+        self.automatic_update_checks = QCheckBox("Automatically check daily for updates")
+        self.automatic_update_checks.setChecked(bool(prefs["automatic_update_checks"]))
+        help_layout.addWidget(self.automatic_update_checks)
+        update_help = QLabel(
+            "The daily background check requests only a small public JSON file. It sends no "
+            "library data, book details, provider settings, API keys, or installation identifier. "
+            "The host may retain ordinary request metadata for service monitoring. Use Check "
+            "for Updates… in the toolbar menu whenever you want to check manually."
+        )
+        self._constrain_wrapped_label(update_help)
+        help_layout.addWidget(update_help)
         help_text = QLabel("Open the complete guide or copy a redacted diagnostic report suitable for support requests.")
         help_text.setWordWrap(True); help_layout.addWidget(help_text)
         help_buttons = QHBoxLayout()
@@ -577,6 +588,7 @@ class ConfigWidget(QWidget):
         prefs["statistics_enabled"] = self.statistics_enabled.isChecked()
         prefs["statistics_retention_days"] = self.statistics_days.value()
         prefs["statistics_max_records"] = self.statistics_records.value()
+        prefs["automatic_update_checks"] = self.automatic_update_checks.isChecked()
         metrics_store.configure(prefs["statistics_enabled"], prefs["statistics_max_records"], prefs["statistics_retention_days"])
         prefs["system_prompt_override"] = proposed
         if not proposed:

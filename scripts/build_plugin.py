@@ -20,7 +20,7 @@ RUNTIME_FILES = {
     "diagnostics.py", "diagnostic_journal.py", "diagnostic_bundle_dialog.py", "metrics.py",
     "statistics_dialog.py", "onboarding.py", "model_catalog.py", "anthropic_provider.py",
     "local_provider.py", "provider_base.py", "provider_config.py", "providers.py", "searxng.py", "transport.py",
-    "model_ids.py", "about.txt",
+    "model_ids.py", "update_check.py", "about.txt",
     "plugin-import-name-bibliosleuth_ai.txt",
 }
 PACKAGE_FILES = {

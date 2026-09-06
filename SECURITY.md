@@ -43,6 +43,22 @@ project, so no fixed response-time guarantee is made.
 - BiblioSleuth AI does not install, launch, administer, or expose SearXNG and does
   not run an MCP or other network server inside Calibre.
 
+### Update service
+
+- Automatic update checks are enabled by default, run only after normal plugin
+  use, and contact the fixed public manifest no more than once every 24 hours.
+- The request has no credentials, query parameters, book/library/provider data,
+  hardware details, or installation identifier. Calibre preferences retain only
+  check timestamps, the latest known version, and reminder/skip choices.
+- The client requires the exact HTTPS host and path, refuses redirects, limits
+  responses to 4 KiB, strictly validates the manifest and its bounded plain-text
+  changelog, and derives rather than accepts the GitHub release URL. It never
+  downloads or installs plugin code.
+- Cloudflare Worker observability persists ordinary invocation records for the
+  public update endpoint, including request/response metadata. The plugin uses a
+  fixed path with no query string and does not add book data, credentials, provider
+  settings, hardware details, or an installation identifier to these requests.
+
 BiblioSleuth AI sends selected OPF fields and bounded text only from confidently
 identified title and copyright pages to the selected AI provider. Unidentified
 pages, other front matter, and body chapters are excluded. Web evidence comes
@@ -86,4 +102,8 @@ SHA-256 verification. Third-party and GitHub Actions are pinned to immutable com
 IDs. Published assets include a CycloneDX SBOM and GitHub artifact attestations.
 Release publication is the only workflow job with repository write permission;
 test, analysis, and build jobs use read-only contents access. This automation
-supplements rather than replaces manual review of security-sensitive changes.
+supplements rather than replaces manual review of security-sensitive changes. An
+isolated Cloudflare Worker static-asset deployment follows publication using a
+narrowly scoped Workers Scripts token in a protected tag-only environment. It
+validates the schema before upload and verifies the public version afterward. The
+token is never bundled with or sent by the plugin.

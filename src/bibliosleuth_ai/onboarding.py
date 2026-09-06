@@ -52,7 +52,8 @@ class SetupWizard(QWizard):
         toolbar.setWordWrap(True); finish_layout.addRow(toolbar)
         privacy = QLabel(
             "Only selected OPF fields and confidently identified title/copyright-page text are sent; unidentified pages and chapters are excluded. API calls and web search may incur charges. "
-            "Anonymized local performance statistics are enabled by default and can be disabled or cleared in the Statistics settings tab."
+            "Anonymized local performance statistics are enabled by default and can be disabled or cleared in the Statistics settings tab. "
+            "A small daily update check is also enabled by default; it sends no library or provider data, its host may retain ordinary request metadata, and it can be disabled in Help settings."
         )
         privacy.setWordWrap(True); finish_layout.addRow(privacy)
         local_note = QLabel(

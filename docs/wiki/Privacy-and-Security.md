@@ -34,6 +34,27 @@ non-bibliographic readiness query. Ollama and LM Studio checks request only the
 local server's model list. Neither readiness check includes EPUB or library
 metadata or generates model output.
 
+## Update checks
+
+After the plugin's first normal use in a Calibre session, an enabled automatic
+check makes at most one credential-free HTTPS request per 24 hours to the fixed
+BiblioSleuth AI update manifest. It sends no library or book data, provider or
+model configuration, API keys, hardware details, or installation identifier.
+Only last-attempt/success times, the latest known version, and per-version
+reminder/skip choices plus the validated public release summary are retained in
+Calibre preferences.
+
+Cloudflare Worker observability persists ordinary invocation logs for this public
+endpoint, including request/response metadata. BiblioSleuth AI uses a fixed path
+with no query string and does not add book data, credentials, provider settings,
+hardware details, or an installation identifier to the request.
+
+The manifest cannot supply an arbitrary link: its schema, stable version, and
+bounded changelog fields are strictly validated and the GitHub release page is
+derived locally. Changelog entries are forced to plain text and cannot contain
+HTML or URLs. Redirects are refused, responses are capped, and installation
+remains entirely manual.
+
 ## Reporting vulnerabilities
 
 Do not disclose secrets or unpublished vulnerabilities in a public issue. Follow the repository's [security policy](https://github.com/terrytrent/calibre-bibliosleuth-ai/blob/main/SECURITY.md).

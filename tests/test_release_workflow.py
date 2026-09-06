@@ -6,6 +6,7 @@ WORKFLOW = ROOT / ".github/workflows/release.yml"
 SECURITY_WORKFLOW = ROOT / ".github/workflows/security.yml"
 QUALITY_WORKFLOW = ROOT / ".github/workflows/quality.yml"
 README = ROOT / "README.md"
+WRANGLER_CONFIG = ROOT / "wrangler.jsonc"
 
 
 def test_tagged_release_workflow_has_all_required_gates():
@@ -28,9 +29,66 @@ def test_tagged_release_workflow_has_all_required_gates():
         'gh release create "$GITHUB_REF_NAME"',
         "python scripts/extract_release_notes.py",
         "--notes-file dist/release-notes.md",
+        "Deploy public update manifest",
+        "python scripts/generate_update_manifest.py",
+        "npx --yes wrangler@4.129.0 deploy",
+        "https://bibliosleuthai-updates.trentathome.xyz/latest.json",
     ):
         assert required in text
     assert "--generate-notes" not in text
+
+
+def test_update_manifest_deploy_is_worker_only_and_runs_after_release():
+    text = WORKFLOW.read_text(encoding="utf-8")
+    deploy = text[text.index("  deploy-update-manifest:"):]
+    assert "needs: [validate_tag, release]" in deploy
+    assert "environment: cloudflare-updates" in deploy
+    assert "permissions:\n      contents: read" in deploy
+    assert "CLOUDFLARE_WORKER_NAME: ${{ vars.CLOUDFLARE_WORKER_NAME }}" in deploy
+    assert "CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}" in deploy
+    assert '--assets "$RUNNER_TEMP/bibliosleuth-update-site"' in deploy
+    assert "--config wrangler.jsonc" in deploy
+    assert "--max-filesize 4096 --proto '=https'" in deploy
+    assert 'WRANGLER_SEND_METRICS: "false"' in deploy
+    assert '"$CLOUDFLARE_WORKER_NAME"' in deploy
+    assert "wrangler pages deploy" not in deploy
+    assert "CLOUDFLARE_PAGES_PROJECT" not in text
+    assert deploy.index("python scripts/generate_update_manifest.py") < deploy.index("wrangler@4.129.0 deploy")
+    assert deploy.index("wrangler@4.129.0 deploy") < deploy.index("Verify the public manifest")
+
+
+def test_cloudflare_secret_is_isolated_to_the_final_deploy_job():
+    text = WORKFLOW.read_text(encoding="utf-8")
+    deploy = text.index("  deploy-update-manifest:")
+    assert "CLOUDFLARE_API_TOKEN" not in text[:deploy]
+    assert text.count("${{ secrets.CLOUDFLARE_API_TOKEN }}") == 1
+    job = text[deploy:]
+    deploy_step = job.index("      - name: Deploy manifest to Cloudflare Worker")
+    verify_step = job.index("      - name: Verify the public manifest")
+    assert "CLOUDFLARE_API_TOKEN" not in job[:deploy_step]
+    assert "CLOUDFLARE_API_TOKEN" in job[deploy_step:verify_step]
+    assert "CLOUDFLARE_API_TOKEN" not in job[verify_step:]
+
+
+def test_worker_static_asset_configuration_is_noninteractive_and_bounded():
+    import json
+
+    config = json.loads(WRANGLER_CONFIG.read_text(encoding="utf-8"))
+    assert config == {
+        "name": "bibliosleuthai-updates",
+        "compatibility_date": "2026-09-06",
+        "workers_dev": False,
+        "preview_urls": False,
+        "observability": {
+            "enabled": True,
+            "logs": {
+                "enabled": True,
+                "invocation_logs": True,
+                "persist": True,
+            },
+        },
+        "assets": {"directory": "./docs/update-site"},
+    }
 
 
 def test_release_write_permission_is_scoped_to_publisher_job():

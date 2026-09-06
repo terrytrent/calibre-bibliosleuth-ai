@@ -74,6 +74,21 @@ credential clearing behind the research boundary.
 - `model_catalog.py` — validated, seven-day model-list cache
 - `metrics.py` and `usage.py` — bounded statistics and cost estimates
 - `diagnostics.py` and `diagnostic_journal.py` — redacted configuration and failure history
+- `update_check.py` — fixed-origin manifest transport, strict parsing, version
+comparison, and daily/per-version notification policy
+
+The update check is separate from provider transports because it carries no
+credentials and has a distinct trust boundary. `action.py` starts it with a
+Calibre `ThreadedJob` after first normal plugin use or on the explicit toolbar
+command. Keep parsing and scheduling Qt-free, refuse redirects, retain the 4 KiB
+response cap, and never add remote manifest-controlled download URLs. Automated
+tests must use mock responses rather than the production endpoint.
+
+Schema 1 requires a bounded `changelog` object. Its summary and 1–8 categorized
+items are validated in `update_check.py` and rendered as plain text. The canonical
+upload-ready manifest template is `docs/update-site/latest.json`; update its
+version and curated high-level items with each release. The tagged workflow sets
+the publication time and derives the minimum Calibre version.
 
 ## Common commands
 
@@ -126,7 +141,7 @@ independent of Calibre and Qt where practical so it remains directly testable.
 ## Publishing
 
 Merge the completed release commit to `main`, then push an annotated semantic tag
-such as `v1.1.2`. The version must match the plugin and documentation. The tagged
+such as `v1.2.0`. The version must match the plugin and documentation. The tagged
 release workflow verifies main ancestry, runs the complete test matrix, Bandit,
 CodeQL, Trivy, dependency auditing, and the blocking Ruff correctness gate, builds
 and re-verifies the package, and creates the GitHub Release with
@@ -144,6 +159,20 @@ The publisher extracts the matching `## MAJOR.MINOR.PATCH` section from
 `CHANGELOG.md` and uses that content as the GitHub Release description. A missing
 or empty version section fails the release instead of publishing generic generated
 notes. Update the changelog before creating the tag.
+
+The production update manifest is served at
+`https://bibliosleuthai-updates.trentathome.xyz/latest.json`. It must remain a
+strict schema-1 stable manifest. Its version may temporarily trail GitHub, in
+which case installed newer versions correctly remain current. Automated
+deployment runs only after the GitHub Release succeeds. It validates the
+checked-in template against the release tag, generates the final manifest,
+enforces the client's 4 KiB byte limit, deploys that directory as static assets
+to the existing Cloudflare Worker, and
+validates the public response. The protected environment exposes its Workers
+Scripts token only to this final job; custom-domain routing remains
+dashboard-managed. `wrangler.jsonc` pins the compatibility date and disables
+per-version preview URLs. It also persists invocation logs for operational
+monitoring; keep the Wrangler CLI version pinned separately in the workflow.
 
 Files in `docs/wiki/` are the canonical wiki source. Merges to `main` synchronize
 them to the repository wiki so changes remain reviewable and version controlled.

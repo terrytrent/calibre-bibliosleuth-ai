@@ -19,7 +19,7 @@
 [![Platforms](https://img.shields.io/badge/platforms-Windows%20%7C%20macOS%20%7C%20Linux-lightgrey.svg)](#install)
 
 - **Author:** Terry Trent
-- **Version:** 1.1.2
+- **Version:** 1.2.0
 - **License:** MIT
 - **Platforms:** Windows, macOS, and Linux
 - **Minimum Calibre version:** 7.0.0
@@ -134,6 +134,16 @@ undo metadata already applied. Use **Delete Stored API Key** before uninstalling
 you also want to remove its operating-system credential-vault entry.
 Use **Clear Statistics…** as well if you want to delete locally retained
 performance history before removing the plugin.
+
+BiblioSleuth AI checks its small public update manifest in the background after
+the first normal use of a Calibre session, at most once every 24 hours. The Help
+settings tab can disable automatic checks, and **Check for Updates…** in the
+toolbar menu always performs a manual check. An available-release notice can be
+deferred until tomorrow or suppressed for that version; a newer version can
+notify again. The notice includes a short summary and categorized high-level
+changes from the strictly validated manifest. The plugin opens the confirmed
+GitHub release page only when asked and never downloads or installs an update
+automatically.
 
 The default provider remains OpenAI with configurable `gpt-5.6-luna`, selected for its
 low token price while retaining Responses API structured output, web search,
@@ -472,6 +482,14 @@ credential-vault data, or unredacted URLs. Review a bundle before sharing it.
 - API redirects are refused so authorization headers cannot leave the selected
   hosted origin or configured endpoint. This does not limit hosted web search or
   consume an evidence-URL slot.
+- The daily update check makes a credential-free HTTPS request to the fixed
+  BiblioSleuth AI manifest. It sends no library data, book metadata, provider
+  settings, API keys, hardware details, or installation identifier. Only check
+  state, notification choices, and the validated public release summary are
+  retained in Calibre preferences. Changelog content is rendered only as plain
+  text. Cloudflare Worker observability retains ordinary invocation logs for the
+  public endpoint, such as request/response metadata. The plugin uses a fixed path
+  with no query string.
 - EPUB archive reads, API responses, metadata values, URLs, and generated HTML
   are locally bounded and validated. Comments allow only paragraphs, line
   breaks, bold, italics, and lists.
@@ -588,6 +606,12 @@ below the current 35% baseline. All workflow actions—not only third-party scan
 are pinned to immutable commit IDs. Canonical pages under `docs/wiki/` are validated
 on pull requests and synchronized to the GitHub Wiki after merging to `main`.
 
+After all tagged-release gates pass and the GitHub Release is published, a final
+protected job generates the strict update manifest from the curated checked-in
+template, deploys it as static assets to the existing Cloudflare Worker, and
+validates the version returned by the public update endpoint. Cloudflare
+credentials are available only to that deployment job.
+
 ### Tagged GitHub releases
 
 After a release commit has been merged to `main`, confirm that every documented
@@ -596,8 +620,8 @@ and embedded version matches. Then push an annotated semantic version tag:
 ```sh
 git switch main
 git pull --ff-only
-git tag -a v1.1.2 -m "BiblioSleuth AI 1.1.2"
-git push bibliosleuth v1.1.2
+git tag -a v1.2.0 -m "BiblioSleuth AI 1.2.0"
+git push bibliosleuth v1.2.0
 ```
 
 The workflow refuses non-`vMAJOR.MINOR.PATCH` tags, tags whose commit is not on

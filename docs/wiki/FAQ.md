@@ -8,6 +8,16 @@ No. It sends selected OPF metadata and bounded evidence from a confidently ident
 
 No. Approved values are written to the calibre database only.
 
+## Does BiblioSleuth AI check for updates?
+
+Yes. After the first normal use in a Calibre session, it checks a small public
+manifest at most once daily. The check is credential-free and sends no book,
+library, provider, model, hardware, or installation-identifying data. Disable it
+in Help settings or check manually from the toolbar menu. Update notices can be
+postponed until tomorrow or skipped for that version, and include concise
+categorized release highlights; installation is always manual. Cloudflare retains
+ordinary request/response metadata for service monitoring.
+
 ## Do I need an OpenAI API key?
 
 Only when OpenAI is selected. Claude uses a separate Anthropic API key. Ollama

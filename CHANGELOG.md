@@ -7,6 +7,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.2.0] - 2026-09-06
+
+### Added
+
+- Added a privacy-minimal daily update check with a manual toolbar command,
+  non-modal availability notice, next-day reminders, per-version suppression,
+  bounded plain-text release highlights, and deliberate GitHub release-page
+  opening. Updates are never downloaded or installed automatically.
+- Added a protected post-release deployment that publishes the validated update
+  manifest as Cloudflare Worker static assets and verifies the public version.
+
+### Changed
+
+- Preserved Cloudflare Worker observability across deployments with persisted
+  invocation logs.
+
 ## [1.1.2] - 2026-09-05
 
 ### Fixed
@@ -266,7 +282,8 @@ Initial stable release of BiblioSleuth AI for Calibre.
   Bandit, dependency auditing, CodeQL, Trivy, Qlty/Ruff analysis, Dependabot, and
   least-privilege tagged GitHub release automation for Windows, macOS, and Linux.
 
-[Unreleased]: https://github.com/terrytrent/calibre-bibliosleuth-ai/compare/v1.1.2...HEAD
+[Unreleased]: https://github.com/terrytrent/calibre-bibliosleuth-ai/compare/v1.2.0...HEAD
+[1.2.0]: https://github.com/terrytrent/calibre-bibliosleuth-ai/compare/v1.1.2...v1.2.0
 [1.1.2]: https://github.com/terrytrent/calibre-bibliosleuth-ai/compare/v1.1.1...v1.1.2
 [1.1.1]: https://github.com/terrytrent/calibre-bibliosleuth-ai/compare/v1.1.0...v1.1.1
 [1.1.0]: https://github.com/terrytrent/calibre-bibliosleuth-ai/compare/v1.0.0...v1.1.0

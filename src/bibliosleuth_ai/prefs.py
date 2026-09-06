@@ -47,6 +47,15 @@ prefs.defaults.update({
     "statistics_enabled": True,
     "statistics_retention_days": 90,
     "statistics_max_records": 1000,
+    "automatic_update_checks": True,
+    "last_update_attempt": 0.0,
+    "last_update_success": 0.0,
+    "latest_known_version": "",
+    "latest_known_minimum_calibre": "",
+    "latest_known_changelog": {},
+    "update_remind_after": 0.0,
+    "update_remind_version": "",
+    "skipped_update_version": "",
 })
 
 metrics_store = MetricsStore(

@@ -4,6 +4,17 @@
 
 Restart calibre after installation. Then open **Preferences → Toolbars & menus**, choose the relevant toolbar, and add **BiblioSleuth AI**. The main icon runs research; its adjacent arrow opens configuration, About, documentation, and field-specific actions.
 
+## An update check fails or looks stale
+
+Automatic failures are deliberately quiet and are not retried until the next
+daily opportunity. Use **Check for Updates…** in the toolbar menu to see a concise
+result. Confirm normal HTTPS access to
+`https://bibliosleuthai-updates.trentathome.xyz/latest.json`; captive portals,
+DNS filters, firewalls, or temporary propagation can block it. Disabling automatic
+checks in Help settings does not disable the manual command. The hosted manifest
+may briefly trail a newly published GitHub release, and the plugin never installs
+updates on its own.
+
 ## An API key is required
 
 Use the offered configuration action for the selected hosted provider. OpenAI

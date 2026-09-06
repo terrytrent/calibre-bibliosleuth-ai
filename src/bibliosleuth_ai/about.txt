@@ -4,13 +4,17 @@ AI-powered exact-edition EPUB metadata research for Calibre.
 
 Author: Terry Trent
 Bundled dependency: defusedxml 0.7.1 (Python Software Foundation License)
-Version: 1.1.2
+Version: 1.2.0
 License: MIT
 Minimum Calibre version: 7.0.0
 Platforms: Windows, macOS, and Linux
 
 BiblioSleuth AI supports OpenAI, Claude, Ollama, LM Studio, provider-hosted search,
 and user-managed SearXNG research.
+
+Optional daily update checks use a small credential-free public manifest and
+never download or install updates automatically. Its host retains ordinary
+request metadata for service monitoring; the plugin uses no query string.
 
 Claude defaults to Sonnet 5. Identity-linked Anthropic keys may also require a
 workspace ID; see the bundled provider setup guide. Hosted use is estimated from
