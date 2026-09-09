@@ -1,10 +1,12 @@
 BiblioSleuth AI
 
 AI-powered exact-edition EPUB metadata research for Calibre.
+Oversized optional pages are excluded; research can use package metadata and
+eligible smaller title/copyright pages within the existing safety limits.
 
 Author: Terry Trent
 Bundled dependency: defusedxml 0.7.1 (Python Software Foundation License)
-Version: 1.2.0
+Version: 1.2.1
 License: MIT
 Minimum Calibre version: 7.0.0
 Platforms: Windows, macOS, and Linux

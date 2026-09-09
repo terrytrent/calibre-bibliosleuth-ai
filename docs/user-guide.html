@@ -10,7 +10,7 @@ th, td { border: 1px solid {{BORDER_COLOR}}; padding: 7px; text-align: left; ver
 </style></head><body>
 <h1>BiblioSleuth AI</h1>
 <p>BiblioSleuth AI is a Calibre plugin that examines selected EPUB package metadata and bounded text from confidently identified title and copyright pages, researches the web with a selected AI and search provider, and proposes metadata for the exact edition. Unidentified pages and chapters are excluded. Nothing is written until you explicitly confirm field-level review or the separately warned bulk-accept workflow.</p>
-<p><b>Author:</b> Terry Trent · <b>Version:</b> 1.2.0 · <b>License:</b> MIT · <b>Minimum Calibre:</b> 7.0.0</p>
+<p><b>Author:</b> Terry Trent · <b>Version:</b> 1.2.1 · <b>License:</b> MIT · <b>Minimum Calibre:</b> 7.0.0</p>
 <p>BiblioSleuth AI is an independent community plugin and is not affiliated with or endorsed by Calibre or any AI or search provider.</p>
 
 <h2>What it can update</h2>
@@ -135,6 +135,7 @@ th, td { border: 1px solid {{BORDER_COLOR}}; padding: 7px; text-align: left; ver
 
 <h2>Failures and troubleshooting</h2>
 <ul><li><b>API key required:</b> configure the selected hosted provider's key.</li><li><b>SearXNG unavailable:</b> confirm the service is running and JSON search is enabled.</li><li><b>401/403:</b> check provider or local-server authentication.</li><li><b>429:</b> a provider or upstream search-engine limit was reached.</li><li><b>Model unavailable:</b> load or select a model supporting reliable structured output.</li><li><b>No EPUB:</b> add an EPUB format to the selected Calibre record.</li><li><b>Incorrect match:</b> inspect evidence, edit proposed values, or skip the record.</li><li><b>Toolbar icon/action missing:</b> restart Calibre, then add BiblioSleuth AI under Preferences → Toolbars &amp; menus.</li></ul>
+<p>Oversized optional pages inside an EPUB are skipped without reading or sending their text. Research continues with package metadata and eligible smaller title/copyright pages. Oversized required package metadata, encryption, and suspicious compression still cause safe extraction failures.</p>
 <p>Failure results provide direct <b>Configure</b>, <b>Retry failed fresh</b>, and <b>Troubleshooting</b> actions. Job logs stay generic while the completion dialog provides useful guidance.</p>
 
 <h2>Diagnostics and support privacy</h2>

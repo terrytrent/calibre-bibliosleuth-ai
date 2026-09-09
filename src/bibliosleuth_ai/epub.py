@@ -18,6 +18,10 @@ class EpubExtractionError(ValueError):
     pass
 
 
+class _OversizedMemberError(EpubExtractionError):
+    pass
+
+
 MAX_ARCHIVE_MEMBERS = 10_000
 MAX_CONTAINER_BYTES = 256 * 1024
 MAX_OPF_BYTES = 2 * 1024 * 1024
@@ -41,11 +45,11 @@ def _read_bounded(book, name, limit):
         raise
     if info.flag_bits & 0x1:
         raise EpubExtractionError("EPUB contains an encrypted metadata member")
-    if info.file_size > limit:
-        raise EpubExtractionError("EPUB member is too large: %s" % name)
     ratio = info.file_size / max(1, info.compress_size)
     if info.file_size >= MIN_RATIO_CHECK_BYTES and ratio > MAX_COMPRESSION_RATIO:
         raise EpubExtractionError("EPUB member has a suspicious compression ratio: %s" % name)
+    if info.file_size > limit:
+        raise _OversizedMemberError("EPUB member is too large: %s" % name)
     with book.open(info) as stream:
         data = stream.read(limit + 1)
     if len(data) > limit:
@@ -276,7 +280,10 @@ def extract_epub(path, max_page_evidence_chars=12000):
         for name in candidate_names:
             try:
                 raw = _read_bounded(book, name, member_limit)
-            except KeyError:
+            except (KeyError, _OversizedMemberError):
+                # Optional evidence must fit in a complete bounded read. Never
+                # read a prefix of a large chapter and mistake it for a page.
+                # Required container/OPF reads remain fatal when oversized.
                 continue
             total_read += len(raw)
             if total_read > MAX_TOTAL_SCAN_BYTES:

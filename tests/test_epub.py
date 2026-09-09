@@ -120,6 +120,41 @@ def test_rejects_oversized_compressed_member(tmp_path):
         extract_epub(path)
 
 
+@pytest.mark.parametrize("large_name", ["chapter004.xhtml", "title.xhtml", "copyright.xhtml"])
+def test_skips_oversized_optional_page_without_reading_it(tmp_path, monkeypatch, large_name):
+    path = tmp_path / "large-page.epub"
+    opf = OPF.replace('href="title.xhtml"', 'href="%s"' % large_name).replace(
+        '</manifest>', '<item id="legal" href="legal.xhtml" media-type="application/xhtml+xml"/></manifest>',
+    ).replace('</spine>', '<itemref idref="legal"/></spine>')
+    with zipfile.ZipFile(path, "w") as zf:
+        zf.writestr("META-INF/container.xml", CONTAINER)
+        zf.writestr("OEBPS/content.opf", opf)
+        zf.writestr("OEBPS/" + large_name, "<p>Example Ada Author PRIVATE LARGE PAGE</p>" * 10000)
+        zf.writestr("OEBPS/legal.xhtml", "<p>Copyright 2024. ISBN 9780000000002.</p>")
+    original_open = zipfile.ZipFile.open
+
+    def guarded_open(self, name, *args, **kwargs):
+        member_name = name.filename if isinstance(name, zipfile.ZipInfo) else name
+        assert member_name != "OEBPS/" + large_name
+        return original_open(self, name, *args, **kwargs)
+
+    monkeypatch.setattr(zipfile.ZipFile, "open", guarded_open)
+    result = extract_epub(path)
+    assert result["opf"]["titles"] == ["Example"]
+    assert "ISBN 9780000000002" in result["page_evidence"]
+    assert "PRIVATE LARGE PAGE" not in result["page_evidence"]
+
+
+@pytest.mark.parametrize("member", ["META-INF/container.xml", "OEBPS/content.opf"])
+def test_oversized_required_metadata_still_fails(tmp_path, member):
+    path = tmp_path / "large-metadata.epub"
+    with zipfile.ZipFile(path, "w") as zf:
+        zf.writestr("META-INF/container.xml", " " * (3 * 1024 * 1024) if member.endswith("container.xml") else CONTAINER)
+        zf.writestr("OEBPS/content.opf", " " * (3 * 1024 * 1024) if member.endswith("content.opf") else OPF)
+    with pytest.raises(EpubExtractionError, match="too large"):
+        extract_epub(path)
+
+
 def test_rejects_unsafe_manifest_path(tmp_path):
     path = tmp_path / "traversal.epub"
     opf = OPF.replace('href="title.xhtml"', 'href="../../outside.xhtml"')

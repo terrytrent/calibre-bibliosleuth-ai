@@ -55,7 +55,7 @@ The first manifest should remain small, stable, and strictly validated:
   "schema": 1,
   "product": "BiblioSleuth AI",
   "channel": "stable",
-  "version": "1.2.0",
+  "version": "1.2.1",
   "published": "2026-09-06T01:06:34Z",
   "minimum_calibre": "7.0.0",
   "changelog": {
@@ -195,9 +195,9 @@ Only update-check state belongs in preferences, for example:
 {
   "last_update_attempt": 1788643675.0,
   "last_update_success": 1788643675.0,
-  "latest_known_version": "1.2.0",
+  "latest_known_version": "1.2.1",
   "latest_known_minimum_calibre": "7.0.0",
-  "update_remind_version": "1.2.0",
+  "update_remind_version": "1.2.1",
   "update_remind_after": 1788730075.0,
   "skipped_update_version": ""
 }

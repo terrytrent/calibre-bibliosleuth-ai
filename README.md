@@ -19,7 +19,7 @@
 [![Platforms](https://img.shields.io/badge/platforms-Windows%20%7C%20macOS%20%7C%20Linux-lightgrey.svg)](#install)
 
 - **Author:** Terry Trent
-- **Version:** 1.2.0
+- **Version:** 1.2.1
 - **License:** MIT
 - **Platforms:** Windows, macOS, and Linux
 - **Minimum Calibre version:** 7.0.0
@@ -490,6 +490,9 @@ credential-vault data, or unredacted URLs. Review a bundle before sharing it.
   text. Cloudflare Worker observability retains ordinary invocation logs for the
   public endpoint, such as request/response metadata. The plugin uses a fixed path
   with no query string.
+- Oversized optional EPUB pages are skipped without reading or sending their text;
+  research can continue with OPF metadata and eligible smaller title/copyright pages.
+  Oversized required package metadata and suspicious compression still fail safely.
 - EPUB archive reads, API responses, metadata values, URLs, and generated HTML
   are locally bounded and validated. Comments allow only paragraphs, line
   breaks, bold, italics, and lists.
@@ -620,8 +623,8 @@ and embedded version matches. Then push an annotated semantic version tag:
 ```sh
 git switch main
 git pull --ff-only
-git tag -a v1.2.0 -m "BiblioSleuth AI 1.2.0"
-git push bibliosleuth v1.2.0
+git tag -a v1.2.1 -m "BiblioSleuth AI 1.2.1"
+git push bibliosleuth v1.2.1
 ```
 
 The workflow refuses non-`vMAJOR.MINOR.PATCH` tags, tags whose commit is not on

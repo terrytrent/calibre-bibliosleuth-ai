@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.2.1] - 2026-09-09
+
+### Fixed
+
+- Oversized optional EPUB pages are skipped without reading or disclosing them,
+  allowing research to continue with OPF metadata and eligible smaller pages.
+  Required metadata limits, encryption checks, and compression-abuse checks remain enforced.
+
 ## [1.2.0] - 2026-09-06
 
 ### Added
@@ -282,7 +290,8 @@ Initial stable release of BiblioSleuth AI for Calibre.
   Bandit, dependency auditing, CodeQL, Trivy, Qlty/Ruff analysis, Dependabot, and
   least-privilege tagged GitHub release automation for Windows, macOS, and Linux.
 
-[Unreleased]: https://github.com/terrytrent/calibre-bibliosleuth-ai/compare/v1.2.0...HEAD
+[Unreleased]: https://github.com/terrytrent/calibre-bibliosleuth-ai/compare/v1.2.1...HEAD
+[1.2.1]: https://github.com/terrytrent/calibre-bibliosleuth-ai/compare/v1.2.0...v1.2.1
 [1.2.0]: https://github.com/terrytrent/calibre-bibliosleuth-ai/compare/v1.1.2...v1.2.0
 [1.1.2]: https://github.com/terrytrent/calibre-bibliosleuth-ai/compare/v1.1.1...v1.1.2
 [1.1.1]: https://github.com/terrytrent/calibre-bibliosleuth-ai/compare/v1.1.0...v1.1.1
