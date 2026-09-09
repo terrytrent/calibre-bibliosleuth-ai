@@ -1,5 +1,5 @@
 PLUGIN_ID = "bibliosleuth_ai"
-PLUGIN_VERSION = (1, 2, 0)
+PLUGIN_VERSION = (1, 2, 1)
 PROMPT_VERSION = "7"
 SCHEMA_VERSION = "4"
 DEFAULT_MODEL = "gpt-5.6-luna"

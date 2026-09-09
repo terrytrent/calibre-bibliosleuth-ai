@@ -18,6 +18,12 @@ organized tree to Calibre's required archive layout.
 
 ## Runtime module map
 
+Optional EPUB candidate pages exceeding the per-member byte limit are skipped
+without opening them. Only the dedicated oversized-member exception is handled
+this way; required container/OPF reads and encryption/compression-abuse failures
+remain fatal. Regression tests verify that skipped members are never opened and
+that smaller eligible pages remain available.
+
 ### Calibre and Qt integration
 
 - `action.py` — toolbar/menu actions, background jobs, pending results, application, and undo
@@ -141,7 +147,7 @@ independent of Calibre and Qt where practical so it remains directly testable.
 ## Publishing
 
 Merge the completed release commit to `main`, then push an annotated semantic tag
-such as `v1.2.0`. The version must match the plugin and documentation. The tagged
+such as `v1.2.1`. The version must match the plugin and documentation. The tagged
 release workflow verifies main ancestry, runs the complete test matrix, Bandit,
 CodeQL, Trivy, dependency auditing, and the blocking Ruff correctness gate, builds
 and re-verifies the package, and creates the GitHub Release with

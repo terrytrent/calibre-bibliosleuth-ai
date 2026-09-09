@@ -84,6 +84,9 @@ provider-visible choices. Model identifiers are sanitized again before entering
 diagnostics or statistics.
 EPUB XML is parsed with a pinned, hash-verified bundled copy of `defusedxml` in
 addition to archive/member limits and explicit declaration checks.
+Oversized optional evidence pages are excluded before decompression; required
+container/OPF size limits remain fatal. Encryption and suspicious compression
+checks run before optional size-based exclusion and remain fatal as well.
 
 The diagnostic journal is limited to 20 entries and seven days. Diagnostic bundles
 are created only after an explicit save action, use restrictive permissions, and are

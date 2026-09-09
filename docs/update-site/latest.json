@@ -2,23 +2,19 @@
   "schema": 1,
   "product": "BiblioSleuth AI",
   "channel": "stable",
-  "version": "1.2.0",
-  "published": "2026-09-06T16:30:00Z",
+  "version": "1.2.1",
+  "published": "2026-09-09T00:00:00Z",
   "minimum_calibre": "7.0.0",
   "changelog": {
-    "summary": "Adds private, user-controlled update notifications and protected release publishing.",
+    "summary": "Fixes research failures caused by oversized optional EPUB pages.",
     "items": [
       {
-        "category": "Added",
-        "text": "Checks daily in the background, supports manual checks, and shows concise release highlights when an update is available."
-      },
-      {
-        "category": "Added",
-        "text": "Provides next-day reminders and per-version notification suppression while keeping installation fully manual."
+        "category": "Fixed",
+        "text": "Skips oversized optional pages without reading or disclosing them, continuing with package metadata and eligible smaller title/copyright pages."
       },
       {
         "category": "Security",
-        "text": "Uses a fixed credential-free endpoint, rejects redirects and malformed responses, and never downloads or installs plugin code."
+        "text": "Preserves required package metadata limits, encryption checks, and compression-abuse protections."
       }
     ]
   }
