@@ -31,7 +31,7 @@ jobs:
       - name: Enforce correctness-oriented Ruff checks
         run: ruff check src tests scripts
       - name: Install Qlty CLI
-        uses: qltysh/qlty-action/install@08a0a862c159eae9b9003081da6663d96efef637 # v2.3.0
+        uses: qltysh/qlty-action/install@c9b09987143d1e4ac955f4803c7bea742102feb5 # v2.4.0
       - name: Run configured linters and security analyzers
         shell: bash
         run: |
@@ -45,7 +45,7 @@ jobs:
           qlty metrics --all --max-depth=2 --sort complexity --limit 50 | tee qlty-metrics.txt || true
       - name: Upload Qlty reports
         if: always()
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
         with:
           name: qlty-reports
           path: |
