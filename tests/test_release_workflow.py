@@ -98,15 +98,18 @@ def test_release_write_permission_is_scoped_to_publisher_job():
     assert text.index("contents: write") > release
     assert "permissions:\n  contents: read" in text
     publisher = text[release:]
-    checkout = "actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1"
-    download = "actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c"
+    # Check workflow ordering without binding tests to a specific Dependabot-updated SHA.
+    # test_all_workflow_actions_are_immutably_pinned enforces full commit pinning.
+    checkout = "actions/checkout@"
+    download = "actions/download-artifact@"
     assert checkout in publisher
     assert publisher.index(checkout) < publisher.index(download)
 
 
 def test_release_produces_an_sbom_and_attested_assets():
     text = WORKFLOW.read_text(encoding="utf-8")
-    assert "anchore/sbom-action@e22c389904149dbc22b58101806040fa8d37a610" in text
+    # Action identity is required here; immutable SHA pinning is checked separately.
+    assert "anchore/sbom-action@" in text
     assert "actions/attest@1e69f48acb82d1966a394da916b4c1698aa569d6" in text
     assert "BiblioSleuth-AI.cdx.json" in text
     assert "attestations: write" in text
