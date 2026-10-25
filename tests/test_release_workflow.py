@@ -99,14 +99,14 @@ def test_release_write_permission_is_scoped_to_publisher_job():
     assert "permissions:\n  contents: read" in text
     publisher = text[release:]
     checkout = "actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1"
-    download = "actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c"
+    download = "actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333"
     assert checkout in publisher
     assert publisher.index(checkout) < publisher.index(download)
 
 
 def test_release_produces_an_sbom_and_attested_assets():
     text = WORKFLOW.read_text(encoding="utf-8")
-    assert "anchore/sbom-action@e22c389904149dbc22b58101806040fa8d37a610" in text
+    assert "anchore/sbom-action@66cbf4bc1f1c0d2edc94016e65bc221b6bb0ad6c" in text
     assert "actions/attest@1e69f48acb82d1966a394da916b4c1698aa569d6" in text
     assert "BiblioSleuth-AI.cdx.json" in text
     assert "attestations: write" in text

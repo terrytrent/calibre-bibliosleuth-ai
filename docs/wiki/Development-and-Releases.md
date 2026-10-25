@@ -30,6 +30,6 @@ before the release gates pass.
 
 Schema 1 includes the bounded plain-text changelog shown in the update notice.
 
-- [Contributing](https://github.com/terrytrent/calibre-bibliosleuth-ai/blob/main/CONTRIBUTING.md)
-- [Changelog](https://github.com/terrytrent/calibre-bibliosleuth-ai/blob/main/CHANGELOG.md)
+- [Contributing](../../CONTRIBUTING.md)
+- [Changelog](../../CHANGELOG.md)
 - [Release artifacts](https://github.com/terrytrent/calibre-bibliosleuth-ai/releases)
