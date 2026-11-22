@@ -177,7 +177,7 @@ jobs:
       - run: python -m pip install --disable-pip-version-check ruff==0.12.12
       - name: Enforce correctness-oriented Ruff checks
         run: ruff check src tests scripts
-      - uses: qltysh/qlty-action/install@ebcd284bf32e36a030afe15f1e136c7be08b9506 # v2.5.0
+      - uses: qltysh/qlty-action/install@357cd88be7c73c5dc45cf7cf8f99a46ec0b62b73 # v2.6.0
       - run: qlty check --all --no-progress --no-fix --no-fail
 
   package:

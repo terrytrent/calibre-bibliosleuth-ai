@@ -31,7 +31,7 @@ jobs:
       - name: Enforce correctness-oriented Ruff checks
         run: ruff check src tests scripts
       - name: Install Qlty CLI
-        uses: qltysh/qlty-action/install@ebcd284bf32e36a030afe15f1e136c7be08b9506 # v2.5.0
+        uses: qltysh/qlty-action/install@357cd88be7c73c5dc45cf7cf8f99a46ec0b62b73 # v2.6.0
       - name: Run configured linters and security analyzers
         shell: bash
         run: |
